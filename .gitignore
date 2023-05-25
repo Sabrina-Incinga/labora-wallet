@@ -22,3 +22,6 @@ go.work
 
 # config files
 *.env
+
+# drawio files
+*.drawio
