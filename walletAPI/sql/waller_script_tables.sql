@@ -1,10 +1,3 @@
-CREATE DATABASE labora_wallet
-    WITH
-    OWNER = postgres
-    ENCODING = 'UTF8'
-    CONNECTION LIMIT = -1
-    IS_TEMPLATE = False;
-
 CREATE TABLE IF NOT EXISTS public."customer"
 (
     id integer NOT NULL SERIAL PRIMARY KEY,
