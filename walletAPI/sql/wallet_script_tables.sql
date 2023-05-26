@@ -1,12 +1,11 @@
 CREATE TABLE IF NOT EXISTS public."customer"
 (
-    id integer NOT NULL SERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     first_name varchar(150) NOT NULL,
     last_name varchar(150) NOT NULL,
     national_identity_number varchar(20) NOT NULL,
     national_identity_type varchar(10) NOT NULL,
-    country_id varchar(10) NOT NULL,
-    PRIMARY KEY (id)
+    country_id varchar(10) NOT NULL
 );
 
 ALTER TABLE IF EXISTS public."customer"
@@ -14,7 +13,7 @@ ALTER TABLE IF EXISTS public."customer"
 
 CREATE TABLE IF NOT EXISTS public.wallet
 (
-    id integer NOT NULL SERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     customer_id integer NOT NULL,
     creation_date date NOT NULL,
     balance double precision NOT NULL,
@@ -30,7 +29,7 @@ ALTER TABLE IF EXISTS public.wallet
 
 CREATE TABLE IF NOT EXISTS public.wallet_tracker
 (
-    id integer NOT NULL SERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     customer_id integer NOT NULL,
     record_date date NOT NULL,
     creation_status varchar(10) NOT NULL,
@@ -41,5 +40,5 @@ CREATE TABLE IF NOT EXISTS public.wallet_tracker
         NOT VALID
 );
 
-ALTER TABLE IF EXISTS public.wallet
+ALTER TABLE IF EXISTS public.wallet_tracker
     OWNER to postgres;
