@@ -37,7 +37,7 @@ func loadEnvVariables() (DbConfig, error) {
 	}, nil
 }
 
-func validateDbExistenceOrCreate(dbConfig DbConfig, connection *sql.DB, err error) (bool, error) {
+func validateDatabaseExistenceOrCreate(dbConfig DbConfig, connection *sql.DB, err error) (bool, error) {
 	var rowsAffected int64
 	var response = rowsAffected != 0
 	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s sslmode=disable",
@@ -56,7 +56,7 @@ func validateDbExistenceOrCreate(dbConfig DbConfig, connection *sql.DB, err erro
 	}
 
 	if !exists {
-		err = createDb(&response, connection, rowsAffected)
+		err = createDatabase(&response, connection, rowsAffected)
 		if err != nil {
 			return response, err
 		}
@@ -75,7 +75,7 @@ func checkDatabaseExists(db *sql.DB, dbname string) (bool, error) {
 	return exists, nil
 }
 
-func createDb(response *bool, connection *sql.DB, rowsAffected int64) error {
+func createDatabase(response *bool, connection *sql.DB, rowsAffected int64) error {
 	scriptContent, err := ioutil.ReadFile("sql\\wallet_script_database.sql")
 	if err != nil {
 		*response = false
@@ -104,7 +104,7 @@ func getConnection() (*sql.DB, error) {
 		return connection, err
 	}
 
-	validationResult, err := validateDbExistenceOrCreate(dbConfig, connection, err)
+	validationResult, err := validateDatabaseExistenceOrCreate(dbConfig, connection, err)
 	if err != nil {
 		return connection, err
 	}
