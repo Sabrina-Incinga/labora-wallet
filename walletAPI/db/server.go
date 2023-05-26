@@ -56,7 +56,7 @@ func validateDatabaseExistenceOrCreate(dbConfig DbConfig, connection *sql.DB, er
 	}
 
 	if !exists {
-		err = createDatabase(&response, connection, rowsAffected)
+		err = createDatabase(&response, connection, &rowsAffected)
 		if err != nil {
 			return response, err
 		}
@@ -75,7 +75,7 @@ func checkDatabaseExists(db *sql.DB, dbname string) (bool, error) {
 	return exists, nil
 }
 
-func createDatabase(response *bool, connection *sql.DB, rowsAffected int64) error {
+func createDatabase(response *bool, connection *sql.DB, rowsAffected *int64) error {
 	scriptContent, err := ioutil.ReadFile("sql\\wallet_script_database.sql")
 	if err != nil {
 		*response = false
@@ -87,7 +87,7 @@ func createDatabase(response *bool, connection *sql.DB, rowsAffected int64) erro
 		return err
 	}
 
-	rowsAffected, err = result.RowsAffected()
+	*rowsAffected, err = result.RowsAffected()
 	if err != nil {
 		*response = false
 		return err
