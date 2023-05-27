@@ -115,14 +115,17 @@ func createTables(connection *sql.DB) error {
 	return nil
 }
 
-func startup(connection *sql.DB, dbConfig *variablesHandler.DbConfig) *controllers.WalletController {
+func startup(connection *sql.DB, dbConfig *variablesHandler.DbConfig) (*controllers.WalletController, *controllers.WalletTransactionController) {
 	customerService := &services.PostgresCustomerDBHandler{Db: connection}
 	walletService := &services.PostgresWalletDBHandler{Db: connection, Config: *dbConfig}
 	walletTrackerService := &services.PostgresWalletTrackerDBHandler{Db: connection}
 	walletCreationService := &services.PostgresWalletCreationtDBHandler{Db: connection, CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService}
-	controller := &controllers.WalletController{CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService, WalletCreationServiceImpl: walletCreationService}
+	walletController := &controllers.WalletController{CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService, WalletCreationServiceImpl: walletCreationService}
+
+	transactionService := &services.PostgresWalletTransactionDBHandler{Db: connection, WalletServiceImpl:walletService}
+	transactionController := &controllers.WalletTransactionController{WalletTransactionServiceImpl: transactionService}
 	
-	return controller
+	return walletController, transactionController
 }
 
 func StartServer() {
@@ -138,17 +141,17 @@ func StartServer() {
 		log.Fatal(err)
 	}
 
-	controller := startup(connection, dbConfig)
+	walletController, transactionController := startup(connection, dbConfig)
 
 	router := mux.NewRouter()
 
-	router.HandleFunc("/wallet", controller.CreateWallet).Methods("POST")
-	router.HandleFunc("/wallet/getStatusById/{id}", controller.GetWalletStatus).Methods("GET")
-	// router.HandleFunc("/items", controller.CreateItem).Methods("POST")
-	// router.HandleFunc("/items/update/{id}", controller.UpdateItem).Methods("PUT")
-	router.HandleFunc("/wallet/delete/{id}", controller.DeleteWallet).Methods("DELETE")
-
-	// Configurar el middleware CORS
+	router.HandleFunc("/wallet", walletController.CreateWallet).Methods("POST")
+	router.HandleFunc("/wallet/getStatusById/{id}", walletController.GetWalletStatus).Methods("GET")
+	router.HandleFunc("/wallet/delete/{id}", walletController.DeleteWallet).Methods("DELETE")
+	router.HandleFunc("/wallet/transaction/withdraw", transactionController.Withdraw).Methods("POST")
+	router.HandleFunc("/wallet/transaction/add", transactionController.AddToAccount).Methods("POST")
+	router.HandleFunc("/wallet/transaction/transfer", transactionController.Transfer).Methods("POST")
+	
 	corsOptions := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://localhost:5173"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
