@@ -143,10 +143,10 @@ func StartServer() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/wallet", controller.CreateWallet).Methods("POST")
-	// router.HandleFunc("/items/getById/{id}", controller.GetById).Methods("GET")
+	router.HandleFunc("/wallet/getStatusById/{id}", controller.GetWalletStatus).Methods("GET")
 	// router.HandleFunc("/items", controller.CreateItem).Methods("POST")
 	// router.HandleFunc("/items/update/{id}", controller.UpdateItem).Methods("PUT")
-	// router.HandleFunc("/items/delete/{id}", controller.DeleteItem).Methods("DELETE")
+	router.HandleFunc("/wallet/delete/{id}", controller.DeleteWallet).Methods("DELETE")
 
 	// Configurar el middleware CORS
 	corsOptions := cors.New(cors.Options{

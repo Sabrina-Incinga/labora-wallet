@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/labora-wallet/walletAPI/model"
 	"github.com/labora-wallet/walletAPI/services/interfaces"
 )
@@ -43,6 +45,57 @@ func (c *WalletController) CreateWallet(w http.ResponseWriter, r *http.Request) 
 	Ok(w, http.StatusOK, "Billetera creada correctamente")
 }
 
+func (c *WalletController) GetWalletStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		ThrowError(err, w, http.StatusBadRequest)
+		return
+	}
+
+	walletStatus, err := c.WalletServiceImpl.GetWalletStatusById(int64(id))
+
+	if err != nil {
+		ThrowError(err, w, http.StatusBadRequest)
+		return
+	}
+	if walletStatus == "" {
+		Ok(w, http.StatusOK, fmt.Sprintf(`La billetera de id %d no se encontró`, id))
+		return
+	}
+
+	Ok(w, http.StatusOK, fmt.Sprintf(`El status de la billetera de id %d es: %s`, id, walletStatus))
+}
+
+func (c *WalletController) DeleteWallet(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+
+	id, err := strconv.Atoi(vars["id"])
+
+	if err != nil {
+		ThrowError(err, w, http.StatusBadRequest)
+		return
+	}
+
+	rowsAffected, err := c.WalletServiceImpl.DeleteWallet(int64(id), nil)
+
+	if err != nil {
+		ThrowError(err, w, http.StatusBadRequest)
+		return
+	}
+
+	if rowsAffected == 0 {
+		Ok(w, http.StatusNoContent, "No se pudo eliminar la billetera seleccionada")
+		return
+	}
+	Ok(w, http.StatusNoContent, "Billetera eliminada correctamente")
+}
+
 func ThrowError(err error, w http.ResponseWriter, statusCode int) {
 	log.Println(err)
 	http.Error(w, err.Error(), statusCode)
@@ -52,31 +105,4 @@ func Ok(w http.ResponseWriter, statusCode int, message string) {
 	w.WriteHeader(statusCode)
 	w.Write([]byte(message))
 }
-
-// //Method that validates if a customer exists and returns it or creates it 
-// func (c *WalletController) createCustomer(dto model.WalletDTO, w http.ResponseWriter) (*model.Customer, bool) {
-// 	if dto.CustomerId == 0 {
-// 		customerId, err := c.CustomerServiceImpl.CreateCustomer(dto.CustomerDTO, nil)
-// 		if err != nil {
-// 			log.Println(err)
-// 			http.Error(w, err.Error(), http.StatusBadRequest)
-// 			return nil, true
-// 		}
-
-// 		dto.CustomerId = customerId
-// 	}
-
-// 	customer, err := c.CustomerServiceImpl.GetCustomerById(dto.CustomerId)
-// 	if err != nil {
-// 		log.Println(err)
-// 		http.Error(w, err.Error(), http.StatusBadRequest)
-// 		return nil, true
-// 	}
-// 	if customer == nil {
-// 		w.WriteHeader(http.StatusBadRequest)
-// 		w.Write([]byte("Cliente no encontrado"))
-// 		return nil, true
-// 	}
-// 	return customer, false
-// }
 

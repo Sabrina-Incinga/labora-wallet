@@ -74,6 +74,30 @@ func (p *PostgresWalletDBHandler) GetWalletByNumber(walletNumber string) (*model
 	return &wallet, nil
 }
 
+func (p *PostgresWalletDBHandler) GetWalletStatusById(id int64) (string, error) {
+	row := p.Db.QueryRow(`SELECT wt.creation_status
+							FROM public.wallet w
+							INNER JOIN public.wallet_tracker wt
+							ON w.customer_id = wt.customer_id
+							WHERE w.id = $1
+							ORDER BY wt.id DESC
+							LIMIT 1;`, id)
+
+	var walletStatus string
+
+	err := row.Scan(&walletStatus)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		} else {
+			return "", err
+		}
+	}
+
+	return walletStatus, nil
+}
+
 func (p *PostgresWalletDBHandler) DeleteWallet(id int64, tx *sql.Tx) (int64, error) {
 	var rowsAffected int64
 	var err error
