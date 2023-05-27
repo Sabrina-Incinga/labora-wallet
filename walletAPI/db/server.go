@@ -115,6 +115,16 @@ func createTables(connection *sql.DB) error {
 	return nil
 }
 
+func startup(connection *sql.DB, dbConfig *variablesHandler.DbConfig) *controllers.WalletController {
+	customerService := &services.PostgresCustomerDBHandler{Db: connection}
+	walletService := &services.PostgresWalletDBHandler{Db: connection, Config: *dbConfig}
+	walletTrackerService := &services.PostgresWalletTrackerDBHandler{Db: connection}
+	walletCreationService := &services.PostgresWalletCreationtDBHandler{Db: connection, CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService}
+	controller := &controllers.WalletController{CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService, WalletCreationServiceImpl: walletCreationService}
+	
+	return controller
+}
+
 func StartServer() {
 	connection, dbConfig, err := getConnection()
 	if err != nil {
@@ -128,10 +138,7 @@ func StartServer() {
 		log.Fatal(err)
 	}
 
-	customerService := &services.PostgresCustomerDBHandler{Db: connection}
-	walletService := &services.PostgresWalletDBHandler{Db: connection, Config: *dbConfig}
-	walletTrackerService := &services.PostgresWalletTrackerDBHandler{Db: connection}
-	controller := &controllers.WalletController{CustomerServiceImpl: *customerService, WalletServiceImpl: *walletService, WalletTrackerServiceImpl: *walletTrackerService}
+	controller := startup(connection, dbConfig)
 
 	router := mux.NewRouter()
 

@@ -2,6 +2,7 @@ package services
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/labora-wallet/walletAPI/model"
 )
@@ -10,35 +11,24 @@ type PostgresCustomerDBHandler struct {
 	Db *sql.DB
 }
 
-func (p *PostgresCustomerDBHandler) CreateCustomer(customer model.CustomerDTO) (int64, error) {
+func (p *PostgresCustomerDBHandler) CreateCustomer(customer model.CustomerDTO, tx *sql.Tx) (int64, error) {
 	var id int64
+	var row *sql.Row
 
 	existentCustomer, err := p.GetCustomerByIdentityNumber(customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId)
 	if err != nil {
 		return id, err
 	} else if existentCustomer != nil {
-		return int64(existentCustomer.ID), nil
+		return existentCustomer.ID, nil
 	}
 
-	transaction, err := p.Db.Begin()
-	if err != nil {
-		return id, err
+	query := createCustomerQuery(customer)
+
+	if tx != nil {
+		row = tx.QueryRow(query)
+	}else{
+		row = p.Db.QueryRow(query)
 	}
-
-	defer func() {
-		if p := recover(); p != nil {
-			transaction.Rollback()
-			panic(p)
-		} else if err != nil {
-			transaction.Rollback()
-		} else {
-			err = transaction.Commit()
-		}
-	}()
-
-	row := transaction.QueryRow(`INSERT INTO public.customer(
-						first_name, last_name, national_identity_number, national_identity_type, country_id)
-						VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;`, customer.FirstName, customer.LastName, customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId)
 
 	err = row.Scan(&id)
 	if err != nil {
@@ -96,32 +86,17 @@ func (p *PostgresCustomerDBHandler) GetCustomerById(id int64) (*model.Customer, 
 	return &customer, nil
 }
 
-func (p *PostgresCustomerDBHandler) UpdateCustomer(dto model.CustomerDTO, id int64) (int64, error) {
+func (p *PostgresCustomerDBHandler) UpdateCustomer(dto model.CustomerDTO, id int64, tx *sql.Tx) (int64, error) {
 	var rowsAffected int64
+	var err error
+	var response sql.Result
+	query := updateCustomerQuery(dto, id)
 
-	transaction, err := p.Db.Begin()
-	if err != nil {
-		return rowsAffected, err
+	if tx != nil {
+		response, err = tx.Exec(query)
+	}else{
+		response, err = p.Db.Exec(query)
 	}
-
-	defer func() {
-		if p := recover(); p != nil {
-			transaction.Rollback()
-			panic(p)
-		} else if err != nil {
-			transaction.Rollback()
-		} else {
-			err = transaction.Commit()
-		}
-	}()
-
-	response, err := transaction.Exec(`UPDATE public.customer 
-								first_name=$1
-								, last_name=$2
-								, national_identity_number=$3
-								, national_identity_type=$4
-								, country_id=$5
-								WHERE id=$5;`, dto.FirstName, dto.LastName, dto.NationalIdentityNumber, dto.NationalIdentityType, dto.CountryId, id)
 
 	if err != nil {
 		return rowsAffected, err
@@ -135,27 +110,17 @@ func (p *PostgresCustomerDBHandler) UpdateCustomer(dto model.CustomerDTO, id int
 	return rowsAffected, nil
 }
 
-func (p *PostgresCustomerDBHandler) DeleteCustomer(id int64) (int64, error) {
+func (p *PostgresCustomerDBHandler) DeleteCustomer(id int64, tx *sql.Tx) (int64, error) {
 	var rowsAffected int64
+	var err error
+	var response sql.Result
+	query := deleteCustomerQuery(id)
 
-	transaction, err := p.Db.Begin()
-	if err != nil {
-		return rowsAffected, err
+	if tx != nil {
+		response, err = tx.Exec(query)
+	}else{
+		response, err = p.Db.Exec(query)
 	}
-
-	defer func() {
-		if p := recover(); p != nil {
-			transaction.Rollback()
-			panic(p)
-		} else if err != nil {
-			transaction.Rollback()
-		} else {
-			err = transaction.Commit()
-		}
-	}()
-
-	response, err := transaction.Exec(`DELETE FROM public.customer
-								WHERE id=$1;`, id)
 
 	if err != nil {
 		return rowsAffected, err
@@ -167,4 +132,35 @@ func (p *PostgresCustomerDBHandler) DeleteCustomer(id int64) (int64, error) {
 	}
 
 	return rowsAffected, nil
+}
+
+func createCustomerQuery(customer model.CustomerDTO)string{
+	query := fmt.Sprintf(`INSERT INTO public.customer(
+							first_name
+							, last_name
+							, national_identity_number
+							, national_identity_type
+							, country_id)
+							VALUES ('%s', '%s', '%s', '%s', '%s') RETURNING id;`, customer.FirstName, customer.LastName, customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId)
+
+	return query
+}
+
+func updateCustomerQuery(customer model.CustomerDTO, id int64) string {
+	query := fmt.Sprintf(`UPDATE public.customer 
+						first_name='%s'
+						, last_name='%s'
+						, national_identity_number='%s'
+						, national_identity_type='%s'
+						, country_id='%s'
+						WHERE id=%d;`, customer.FirstName, customer.LastName, customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId, id)
+
+	return query
+}
+
+func deleteCustomerQuery(id int64) string {
+	query := fmt.Sprintf(`DELETE FROM public.customer
+						WHERE id=%d;`, id)
+
+	return query
 }

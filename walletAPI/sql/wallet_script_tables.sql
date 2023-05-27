@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS public.wallet
         ON UPDATE CASCADE
         ON DELETE CASCADE
         NOT VALID,
-    CONSTRAINT unique_wallet_number UNIQUE (wallet_number)
+    CONSTRAINT unique_wallet_number UNIQUE (wallet_number),
+    CONSTRAINT unique_customer_id UNIQUE (customer_id)
 );
 
 ALTER TABLE IF EXISTS public.wallet

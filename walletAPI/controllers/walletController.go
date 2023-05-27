@@ -1,153 +1,82 @@
 package controllers
 
 import (
-	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"log"
 	"net/http"
-	"net/url"
-	"strconv"
-	"time"
 
 	"github.com/labora-wallet/walletAPI/model"
-	"github.com/labora-wallet/walletAPI/services"
+	"github.com/labora-wallet/walletAPI/services/interfaces"
 )
 
 type WalletController struct {
-	CustomerServiceImpl      services.PostgresCustomerDBHandler
-	WalletServiceImpl        services.PostgresWalletDBHandler
-	WalletTrackerServiceImpl services.PostgresWalletTrackerDBHandler
+	CustomerServiceImpl      interfaces.CustomerDBHandler
+	WalletServiceImpl        interfaces.WalletDBHandler
+	WalletTrackerServiceImpl interfaces.WalletTrackerDBHandler
+	WalletCreationServiceImpl interfaces.WalletCreationDBHandler
 }
 
-type ValidationInfo struct {
-	Check struct {
-		CheckID      string `json:"check_id"`
-		CreationDate string `json:"creation_date"`
-		Score        int    `json:"score"`
-	} `json:"check"`
-}
-
-const (
-	StatusRejected  = "RECHAZADO"
-	StatusCompleted = "COMPLETADO"
-)
-
+//Method that creates a new wallet if validation requirements are met
 func (c *WalletController) CreateWallet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	//TODO validar que el usuario no tiene una billetera ya asociada
-	var dto model.WalletDTO = model.WalletDTO{
-		CustomerId:   nil,
-		CustomerDTO:  nil,
-		WalletNumber: nil,
-		CreationDate: new(time.Time),
-		Balance:      0.0,
-	}
+
+	var dto model.WalletDTO = model.InitializeWallet()
 	err := json.NewDecoder(r.Body).Decode(&dto)
 
 	defer r.Body.Close()
 
 	if err != nil {
-		log.Fatal(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ThrowError(err, w, http.StatusBadRequest)
 		return
 	}
 
-	*dto.CreationDate = time.Now()
+	validation, rowsAffected, err := c.WalletCreationServiceImpl.AttemptWalletCreation(dto)
 
-	if dto.CustomerId == nil {
-		customerId, err := c.CustomerServiceImpl.CreateCustomer(*dto.CustomerDTO)
-		if err != nil {
-			log.Fatal(err)
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		*dto.CustomerId = customerId
-	}
-
-	customer, err := c.CustomerServiceImpl.GetCustomerById(*dto.CustomerId)
-	if err != nil {
-		log.Fatal(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if validation == model.StatusRejected{
+		Ok(w, http.StatusOK, "El usuario no pasa las validaciones para la creación de la billetera")
 		return
 	}
-	if customer == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Cliente no encontrado"))
-		return
+	if rowsAffected == 0{
+		ThrowError(fmt.Errorf("La billetera no pudo ser creada"), w, http.StatusBadRequest)
 	}
-
-	validation := c.validateScore(customer.NationalIdentityNumber, customer.CountryId)
-
-	if validation.Check.Score != 1 {
-		_, err = c.WalletTrackerServiceImpl.CreateWalletTracker(model.WalletTrackerDTO{CustomerId: *dto.CustomerId, RecordDate: dto.CreationDate, CreationStatus: StatusRejected})
-		if err != nil {
-			log.Fatal(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("El documento consultado no pasa las validaciones para la creación de la billetera virtual"))
-		return
-	}
-
-	_, err = c.WalletServiceImpl.CreateWallet(dto)
-	if err != nil {
-		log.Fatal(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	_, err = c.WalletTrackerServiceImpl.CreateWalletTracker(model.WalletTrackerDTO{CustomerId: *dto.CustomerId, RecordDate: dto.CreationDate, CreationStatus: StatusCompleted})
-	if err != nil {
-		log.Fatal(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Billetera creada correctamente"))
-
+	Ok(w, http.StatusOK, "Billetera creada correctamente")
 }
 
-func (c *WalletController) validateScore(nationalIdentityNumber, countryId string) ValidationInfo {
-	data := url.Values{}
-	data.Set("national_id", nationalIdentityNumber)
-	data.Set("country", countryId)
-	data.Set("type", "person")
-	data.Set("user_authorized", strconv.FormatBool(true))
-
-	// Codificar los datos en una cadena en formato application/x-www-form-urlencoded
-	body := bytes.NewBufferString(data.Encode())
-
-	req, err := http.NewRequest("POST", c.WalletServiceImpl.Config.BackgroundChecksUrl, body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	req.Header.Set("Content-Type", "application/www-x-form-urlencoded")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Truora-Api-Key", c.WalletServiceImpl.Config.ApiKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	responseBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var responseMap ValidationInfo
-
-	err = json.Unmarshal(responseBody, &responseMap)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return responseMap
-
+func ThrowError(err error, w http.ResponseWriter, statusCode int) {
+	log.Println(err)
+	http.Error(w, err.Error(), statusCode)
 }
+
+func Ok(w http.ResponseWriter, statusCode int, message string) {
+	w.WriteHeader(statusCode)
+	w.Write([]byte(message))
+}
+
+// //Method that validates if a customer exists and returns it or creates it 
+// func (c *WalletController) createCustomer(dto model.WalletDTO, w http.ResponseWriter) (*model.Customer, bool) {
+// 	if dto.CustomerId == 0 {
+// 		customerId, err := c.CustomerServiceImpl.CreateCustomer(dto.CustomerDTO, nil)
+// 		if err != nil {
+// 			log.Println(err)
+// 			http.Error(w, err.Error(), http.StatusBadRequest)
+// 			return nil, true
+// 		}
+
+// 		dto.CustomerId = customerId
+// 	}
+
+// 	customer, err := c.CustomerServiceImpl.GetCustomerById(dto.CustomerId)
+// 	if err != nil {
+// 		log.Println(err)
+// 		http.Error(w, err.Error(), http.StatusBadRequest)
+// 		return nil, true
+// 	}
+// 	if customer == nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		w.Write([]byte("Cliente no encontrado"))
+// 		return nil, true
+// 	}
+// 	return customer, false
+// }
+
