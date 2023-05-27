@@ -96,7 +96,7 @@ func (p *PostgresWalletDBHandler) GetWalletByNumber(walletNumber string) (*model
 	return &wallet, nil
 }
 
-func (p *PostgresWalletDBHandler) DeleteWallet(id int) (int64, error) {
+func (p *PostgresWalletDBHandler) DeleteWallet(id int64) (int64, error) {
 	var rowsAffected int64
 
 	transaction, err := p.Db.Begin()

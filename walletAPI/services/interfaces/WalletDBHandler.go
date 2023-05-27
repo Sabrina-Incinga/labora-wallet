@@ -7,5 +7,5 @@ import (
 type WalletDBHandler interface{
 	CreateWallet(wallet model.WalletDTO) (int64, error)
 	GetWalletByNumber(walletNumber string) (*model.Wallet, error)
-	DeleteWallet(id int) (int64, error)
+	DeleteWallet(id int64) (int64, error)
 }

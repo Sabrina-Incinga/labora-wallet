@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public."customer"
 
 );
 
-CREATE INDEX idx_unique_national_identity ON public."customer" (national_identity_number, national_identity_type, country_id);
+CREATE INDEX IF NOT EXISTS idx_unique_national_identity ON public."customer" (national_identity_number, national_identity_type, country_id);
 
 ALTER TABLE IF EXISTS public."customer"
     OWNER to postgres;

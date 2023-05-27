@@ -7,12 +7,13 @@ import (
 )
 
 type DbConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	DbName   string
-	ApiKey   string
+	Host     			string
+	Port     			string
+	User     			string
+	Password 			string
+	DbName   			string
+	ApiKey   			string
+	BackgroundChecksUrl string
 }
 
 func LoadEnvVariables() (DbConfig, error) {
@@ -27,5 +28,6 @@ func LoadEnvVariables() (DbConfig, error) {
 		Password: os.Getenv("password"),
 		DbName:   os.Getenv("dbname"),
 		ApiKey:   os.Getenv("apiKey"),
+		BackgroundChecksUrl: os.Getenv("backgroundChecksUrl"),
 	}, nil
 }

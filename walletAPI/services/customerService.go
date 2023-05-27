@@ -2,6 +2,7 @@ package services
 
 import (
 	"database/sql"
+
 	"github.com/labora-wallet/walletAPI/model"
 )
 
@@ -37,7 +38,7 @@ func (p *PostgresCustomerDBHandler) CreateCustomer(customer model.CustomerDTO) (
 
 	row := transaction.QueryRow(`INSERT INTO public.customer(
 						first_name, last_name, national_identity_number, national_identity_type, country_id)
-						VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;`, customer.FirstName, customer.LasttName, customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId)
+						VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;`, customer.FirstName, customer.LastName, customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId)
 
 	err = row.Scan(&id)
 	if err != nil {
@@ -59,7 +60,7 @@ func (p *PostgresCustomerDBHandler) GetCustomerByIdentityNumber(nationalIdentity
 
 	var customer model.Customer
 
-	err := row.Scan(&customer.ID, &customer.FirstName, &customer.LasttName, &customer.NationalIdentityNumber, &customer.NationalIdentityType, &customer.CountryId)
+	err := row.Scan(&customer.ID, &customer.FirstName, &customer.LastName, &customer.NationalIdentityNumber, &customer.NationalIdentityType, &customer.CountryId)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -71,7 +72,7 @@ func (p *PostgresCustomerDBHandler) GetCustomerByIdentityNumber(nationalIdentity
 	return &customer, nil
 }
 
-func (p *PostgresCustomerDBHandler) GetCustomerById(id int) (*model.Customer, error){
+func (p *PostgresCustomerDBHandler) GetCustomerById(id int64) (*model.Customer, error) {
 	row := p.Db.QueryRow(`SELECT
 							id 
 							, first_name
@@ -83,7 +84,7 @@ func (p *PostgresCustomerDBHandler) GetCustomerById(id int) (*model.Customer, er
 
 	var customer model.Customer
 
-	err := row.Scan(&customer.ID, &customer.FirstName, &customer.LasttName, &customer.NationalIdentityNumber, &customer.NationalIdentityType, &customer.CountryId)
+	err := row.Scan(&customer.ID, &customer.FirstName, &customer.LastName, &customer.NationalIdentityNumber, &customer.NationalIdentityType, &customer.CountryId)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -95,7 +96,7 @@ func (p *PostgresCustomerDBHandler) GetCustomerById(id int) (*model.Customer, er
 	return &customer, nil
 }
 
-func (p *PostgresCustomerDBHandler) UpdateCustomer(dto model.CustomerDTO, id int) (int64, error) {
+func (p *PostgresCustomerDBHandler) UpdateCustomer(dto model.CustomerDTO, id int64) (int64, error) {
 	var rowsAffected int64
 
 	transaction, err := p.Db.Begin()
@@ -120,7 +121,7 @@ func (p *PostgresCustomerDBHandler) UpdateCustomer(dto model.CustomerDTO, id int
 								, national_identity_number=$3
 								, national_identity_type=$4
 								, country_id=$5
-								WHERE id=$5;`, dto.FirstName, dto.LasttName, dto.NationalIdentityNumber, dto.NationalIdentityType, dto.CountryId, id)
+								WHERE id=$5;`, dto.FirstName, dto.LastName, dto.NationalIdentityNumber, dto.NationalIdentityType, dto.CountryId, id)
 
 	if err != nil {
 		return rowsAffected, err
@@ -134,7 +135,7 @@ func (p *PostgresCustomerDBHandler) UpdateCustomer(dto model.CustomerDTO, id int
 	return rowsAffected, nil
 }
 
-func (p *PostgresCustomerDBHandler) DeleteCustomer(id int) (int64, error) {
+func (p *PostgresCustomerDBHandler) DeleteCustomer(id int64) (int64, error) {
 	var rowsAffected int64
 
 	transaction, err := p.Db.Begin()

@@ -133,9 +133,8 @@ func StartServer() {
 	walletTrackerService := &services.PostgresWalletTrackerDBHandler{Db: connection}
 	controller := &controllers.WalletController{CustomerServiceImpl: *customerService, WalletServiceImpl: *walletService, WalletTrackerServiceImpl: *walletTrackerService}
 
-	
 	router := mux.NewRouter()
-	
+
 	router.HandleFunc("/wallet", controller.CreateWallet).Methods("POST")
 	// router.HandleFunc("/items/getById/{id}", controller.GetById).Methods("GET")
 	// router.HandleFunc("/items", controller.CreateItem).Methods("POST")
@@ -149,7 +148,7 @@ func StartServer() {
 	})
 
 	handler := corsOptions.Handler(router)
-	
+
 	server := &http.Server{
 		Addr:         ":8000",
 		Handler:      handler,

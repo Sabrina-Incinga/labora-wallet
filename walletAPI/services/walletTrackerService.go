@@ -43,7 +43,7 @@ func (p *PostgresWalletTrackerDBHandler) CreateWalletTracker(tracker model.Walle
 	return rowsAffected, nil
 }
 
-func (p *PostgresWalletTrackerDBHandler) GetWalletTrackByCustomerId(customerId int) (*[]model.WalletTracker, error) {
+func (p *PostgresWalletTrackerDBHandler) GetWalletTrackByCustomerId(customerId int64) (*[]model.WalletTracker, error) {
 	var trackers []model.WalletTracker = make([]model.WalletTracker, 0)
 	rows, err := p.Db.Query(`SELECT 
 						id
