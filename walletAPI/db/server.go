@@ -6,38 +6,17 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"time"
+
 	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
+	"github.com/labora-wallet/walletAPI/controllers"
+	"github.com/labora-wallet/walletAPI/db/variablesHandler"
+	"github.com/labora-wallet/walletAPI/services"
 	_ "github.com/lib/pq"
+	"github.com/rs/cors"
 )
 
-type DbConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	DbName   string
-	ApiKey   string
-}
-
-func loadEnvVariables() (DbConfig, error) {
-	err := godotenv.Load("./config/global.env")
-	if err != nil {
-		return DbConfig{}, err
-	}
-	return DbConfig{
-		Host:     os.Getenv("host"),
-		Port:     os.Getenv("port"),
-		User:     os.Getenv("user"),
-		Password: os.Getenv("password"),
-		DbName:   os.Getenv("dbname"),
-		ApiKey:   os.Getenv("apiKey"),
-	}, nil
-}
-
-func validateDatabaseExistenceOrCreate(dbConfig DbConfig, connection *sql.DB, err error) (bool, error) {
+func validateDatabaseExistenceOrCreate(dbConfig variablesHandler.DbConfig, connection *sql.DB, err error) (bool, error) {
 	var rowsAffected int64
 	var response = rowsAffected != 0
 	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s sslmode=disable",
@@ -96,33 +75,33 @@ func createDatabase(response *bool, connection *sql.DB, rowsAffected *int64) err
 	return nil
 }
 
-func getConnection() (*sql.DB, error) {
+func getConnection() (*sql.DB, *variablesHandler.DbConfig, error) {
 	var err error
 	var connection *sql.DB
-	dbConfig, err := loadEnvVariables()
+	dbConfig, err := variablesHandler.LoadEnvVariables()
 	if err != nil {
-		return connection, err
+		return nil, nil, err
 	}
 
 	validationResult, err := validateDatabaseExistenceOrCreate(dbConfig, connection, err)
 	if err != nil {
-		return connection, err
+		return nil, nil, err
 	}
 
 	if validationResult {
 		psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 			dbConfig.Host, dbConfig.Port, dbConfig.User, dbConfig.Password, dbConfig.DbName)
-	
+
 		connection, err = sql.Open("postgres", psqlInfo)
 		if err != nil {
-			return connection, err
+			return nil, nil, err
 		}
 	}
 
-	return connection, nil
+	return connection, &dbConfig, nil
 }
 
-func createTables(connection *sql.DB) error{
+func createTables(connection *sql.DB) error {
 	scriptContent, err := ioutil.ReadFile("sql\\wallet_script_tables.sql")
 	if err != nil {
 		return err
@@ -137,7 +116,7 @@ func createTables(connection *sql.DB) error{
 }
 
 func StartServer() {
-	connection, err := getConnection()
+	connection, dbConfig, err := getConnection()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -149,15 +128,35 @@ func StartServer() {
 		log.Fatal(err)
 	}
 
-	router := mux.NewRouter()
+	customerService := &services.PostgresCustomerDBHandler{Db: connection}
+	walletService := &services.PostgresWalletDBHandler{Db: connection, Config: *dbConfig}
+	walletTrackerService := &services.PostgresWalletTrackerDBHandler{Db: connection}
+	controller := &controllers.WalletController{CustomerServiceImpl: *customerService, WalletServiceImpl: *walletService, WalletTrackerServiceImpl: *walletTrackerService}
 
+	
+	router := mux.NewRouter()
+	
+	router.HandleFunc("/wallet", controller.CreateWallet).Methods("POST")
+	// router.HandleFunc("/items/getById/{id}", controller.GetById).Methods("GET")
+	// router.HandleFunc("/items", controller.CreateItem).Methods("POST")
+	// router.HandleFunc("/items/update/{id}", controller.UpdateItem).Methods("PUT")
+	// router.HandleFunc("/items/delete/{id}", controller.DeleteItem).Methods("DELETE")
+
+	// Configurar el middleware CORS
+	corsOptions := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://localhost:5173"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
+	})
+
+	handler := corsOptions.Handler(router)
+	
 	server := &http.Server{
 		Addr:         ":8000",
-		Handler:      router,
+		Handler:      handler,
 		ReadTimeout:  40 * time.Second,
 		WriteTimeout: 300 * time.Second,
 	}
 	fmt.Printf("api server listening at port %v", server.Addr)
-	server.ListenAndServe() 
+	server.ListenAndServe()
 
 }
