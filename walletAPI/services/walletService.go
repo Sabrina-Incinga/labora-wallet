@@ -21,20 +21,17 @@ func (p *PostgresWalletDBHandler) CreateWallet(wallet model.WalletDTO, tx *sql.T
 	var err error
 	var response sql.Result
 
-	// No existe una billetera con este número, se puede utilizar
 	walletNumber, err := generateUniqueWalletNumber(p)
 	if err != nil {
 		return rowsAffected, err
 	}
 
+	query := createWalletQuery()
+
 	if tx != nil {
-		response, err = tx.Exec(`INSERT INTO public.wallet(
-			customer_id, wallet_number, creation_date, balance)
-			VALUES ($1, $2, $3, $4);`, wallet.CustomerId, walletNumber, wallet.CreationDate, wallet.Balance)
+		response, err = tx.Exec(query, wallet.CustomerId, walletNumber, wallet.CreationDate, wallet.Balance)
 	} else {
-		response, err = p.Db.Exec(`INSERT INTO public.wallet(
-			customer_id, wallet_number, creation_date, balance)
-			VALUES ($1, $2, $3, $4);`, wallet.CustomerId, walletNumber, wallet.CreationDate, wallet.Balance)
+		response, err = p.Db.Exec(query, wallet.CustomerId, walletNumber, wallet.CreationDate, wallet.Balance)
 	}
 
 	if err != nil {
@@ -102,12 +99,12 @@ func (p *PostgresWalletDBHandler) DeleteWallet(id int64, tx *sql.Tx) (int64, err
 	var rowsAffected int64
 	var err error
 	var response sql.Result
-	query := deleteWalletQuery(id)
+	query := deleteWalletQuery()
 
 	if tx != nil {
-		response, err = tx.Exec(query)
+		response, err = tx.Exec(query, id)
 	} else {
-		response, err = p.Db.Exec(query)
+		response, err = p.Db.Exec(query, id)
 	}
 
 	if err != nil {
@@ -126,9 +123,15 @@ func (p *PostgresWalletDBHandler) GetConfig() variablesHandler.DbConfig {
 	return p.Config
 }
 
-func deleteWalletQuery(id int64) string {
-	return fmt.Sprintf(`DELETE FROM public.wallet
-	WHERE id=%d;`, id)
+func createWalletQuery() string{
+	return `INSERT INTO public.wallet(
+		customer_id, wallet_number, creation_date, balance)
+		VALUES ($1, $2, $3, $4);`
+}
+
+func deleteWalletQuery() string {
+	return `DELETE FROM public.wallet
+	WHERE id=$1;`
 }
 
 func generateWalletNumber() string {

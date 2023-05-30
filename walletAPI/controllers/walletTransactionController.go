@@ -9,13 +9,13 @@ import (
 )
 
 type WalletTransactionController struct {
-	WalletTransactionServiceImpl      interfaces.TransactionDBHandler
+	WalletTransactionServiceImpl interfaces.WalletTransactionDBHandler
 }
 
-func (t WalletTransactionController) Transfer(w http.ResponseWriter, r *http.Request){
+func (t WalletTransactionController) Transfer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var dto model.WalletTransactionDTO 
+	var dto model.WalletTransactionDTO
 	err := json.NewDecoder(r.Body).Decode(&dto)
 
 	defer r.Body.Close()
@@ -35,10 +35,10 @@ func (t WalletTransactionController) Transfer(w http.ResponseWriter, r *http.Req
 	Ok(w, http.StatusOK, "Transacción realizada correctamente")
 }
 
-func (t WalletTransactionController) Withdraw(w http.ResponseWriter, r *http.Request){
+func (t WalletTransactionController) Withdraw(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var dto model.WalletTransactionDTO 
+	var dto model.WalletTransactionDTO
 	err := json.NewDecoder(r.Body).Decode(&dto)
 
 	defer r.Body.Close()
@@ -58,10 +58,10 @@ func (t WalletTransactionController) Withdraw(w http.ResponseWriter, r *http.Req
 	Ok(w, http.StatusOK, "Transacción realizada correctamente")
 }
 
-func (t WalletTransactionController) AddToAccount(w http.ResponseWriter, r *http.Request){
+func (t WalletTransactionController) AddToAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var dto model.WalletTransactionDTO 
+	var dto model.WalletTransactionDTO
 	err := json.NewDecoder(r.Body).Decode(&dto)
 
 	defer r.Body.Close()

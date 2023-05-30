@@ -14,14 +14,12 @@ func (p *PostgresWalletTrackerDBHandler) CreateWalletTracker(tracker model.Walle
 	var err error
 	var response sql.Result
 
+	query := createWalletTrackerQuery()
+
 	if tx != nil {
-		response, err = tx.Exec(`INSERT INTO public.wallet_tracker(
-			customer_id, record_date, creation_status)
-			VALUES ($1, $2, $3);`, tracker.CustomerId, tracker.RecordDate, tracker.CreationStatus)
+		response, err = tx.Exec(query, tracker.CustomerId, tracker.RecordDate, tracker.CreationStatus)
 	}else{
-		response, err = p.Db.Exec(`INSERT INTO public.wallet_tracker(
-			customer_id, record_date, creation_status)
-			VALUES ($1, $2, $3);`, tracker.CustomerId, tracker.RecordDate, tracker.CreationStatus)
+		response, err = p.Db.Exec(query, tracker.CustomerId, tracker.RecordDate, tracker.CreationStatus)
 	}
 
 	if err != nil {
@@ -62,4 +60,10 @@ func (p *PostgresWalletTrackerDBHandler) GetWalletTrackByCustomerId(customerId i
 	}
 
 	return trackers, nil
+}
+
+func createWalletTrackerQuery() string{
+	return `INSERT INTO public.wallet_tracker(
+		customer_id, record_date, creation_status)
+		VALUES ($1, $2, $3);`
 }

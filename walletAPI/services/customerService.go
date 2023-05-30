@@ -2,8 +2,6 @@ package services
 
 import (
 	"database/sql"
-	"fmt"
-
 	"github.com/labora-wallet/walletAPI/model"
 )
 
@@ -22,12 +20,12 @@ func (p *PostgresCustomerDBHandler) CreateCustomer(customer model.CustomerDTO, t
 		return existentCustomer.ID, nil
 	}
 
-	query := createCustomerQuery(customer)
+	query := createCustomerQuery()
 
 	if tx != nil {
-		row = tx.QueryRow(query)
+		row = tx.QueryRow(query, customer.FirstName, customer.LastName, customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId)
 	}else{
-		row = p.Db.QueryRow(query)
+		row = p.Db.QueryRow(query, customer.FirstName, customer.LastName, customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId)
 	}
 
 	err = row.Scan(&id)
@@ -90,12 +88,12 @@ func (p *PostgresCustomerDBHandler) UpdateCustomer(dto model.CustomerDTO, id int
 	var rowsAffected int64
 	var err error
 	var response sql.Result
-	query := updateCustomerQuery(dto, id)
+	query := updateCustomerQuery()
 
 	if tx != nil {
-		response, err = tx.Exec(query)
+		response, err = tx.Exec(query, dto.FirstName, dto.LastName, dto.NationalIdentityNumber, dto.NationalIdentityType, dto.CountryId, id)
 	}else{
-		response, err = p.Db.Exec(query)
+		response, err = p.Db.Exec(query, dto.FirstName, dto.LastName, dto.NationalIdentityNumber, dto.NationalIdentityType, dto.CountryId, id)
 	}
 
 	if err != nil {
@@ -114,12 +112,12 @@ func (p *PostgresCustomerDBHandler) DeleteCustomer(id int64, tx *sql.Tx) (int64,
 	var rowsAffected int64
 	var err error
 	var response sql.Result
-	query := deleteCustomerQuery(id)
+	query := deleteCustomerQuery()
 
 	if tx != nil {
-		response, err = tx.Exec(query)
+		response, err = tx.Exec(query, id)
 	}else{
-		response, err = p.Db.Exec(query)
+		response, err = p.Db.Exec(query, id)
 	}
 
 	if err != nil {
@@ -134,33 +132,33 @@ func (p *PostgresCustomerDBHandler) DeleteCustomer(id int64, tx *sql.Tx) (int64,
 	return rowsAffected, nil
 }
 
-func createCustomerQuery(customer model.CustomerDTO)string{
-	query := fmt.Sprintf(`INSERT INTO public.customer(
+func createCustomerQuery()string{
+	query := `INSERT INTO public.customer(
 							first_name
 							, last_name
 							, national_identity_number
 							, national_identity_type
 							, country_id)
-							VALUES ('%s', '%s', '%s', '%s', '%s') RETURNING id;`, customer.FirstName, customer.LastName, customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId)
+							VALUES ($1, $2, $3, $4, $5) RETURNING id;`
 
 	return query
 }
 
-func updateCustomerQuery(customer model.CustomerDTO, id int64) string {
-	query := fmt.Sprintf(`UPDATE public.customer 
-						first_name='%s'
-						, last_name='%s'
-						, national_identity_number='%s'
-						, national_identity_type='%s'
-						, country_id='%s'
-						WHERE id=%d;`, customer.FirstName, customer.LastName, customer.NationalIdentityNumber, customer.NationalIdentityType, customer.CountryId, id)
+func updateCustomerQuery() string {
+	query := `UPDATE public.customer 
+						first_name=$1
+						, last_name=$2
+						, national_identity_number=$3
+						, national_identity_type=$4
+						, country_id=$5
+						WHERE id=$6;`
 
 	return query
 }
 
-func deleteCustomerQuery(id int64) string {
-	query := fmt.Sprintf(`DELETE FROM public.customer
-						WHERE id=%d;`, id)
+func deleteCustomerQuery() string {
+	query := `DELETE FROM public.customer
+						WHERE id=$1;`
 
 	return query
 }

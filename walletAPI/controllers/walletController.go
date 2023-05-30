@@ -13,13 +13,13 @@ import (
 )
 
 type WalletController struct {
-	CustomerServiceImpl      interfaces.CustomerDBHandler
-	WalletServiceImpl        interfaces.WalletDBHandler
-	WalletTrackerServiceImpl interfaces.WalletTrackerDBHandler
-	WalletCreationServiceImpl interfaces.WalletCreationDBHandler
+	CustomerServiceImpl       interfaces.CustomerDBHandler
+	WalletServiceImpl         interfaces.WalletDBHandler
+	WalletTrackerServiceImpl  interfaces.WalletTrackerDBHandler
+	WalletCreationServiceImpl interfaces.WalletAdministratorHandler
 }
 
-//Method that creates a new wallet if validation requirements are met
+// Method that creates a new wallet if validation requirements are met
 func (c *WalletController) CreateWallet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -35,11 +35,11 @@ func (c *WalletController) CreateWallet(w http.ResponseWriter, r *http.Request) 
 
 	validation, rowsAffected, err := c.WalletCreationServiceImpl.AttemptWalletCreation(dto)
 
-	if validation == model.StatusRejected{
+	if validation == model.StatusRejected {
 		Ok(w, http.StatusOK, "El usuario no pasa las validaciones para la creación de la billetera")
 		return
 	}
-	if rowsAffected == 0{
+	if rowsAffected == 0 {
 		ThrowError(fmt.Errorf("La billetera no pudo ser creada"), w, http.StatusBadRequest)
 	}
 	Ok(w, http.StatusOK, "Billetera creada correctamente")
@@ -105,4 +105,3 @@ func Ok(w http.ResponseWriter, statusCode int, message string) {
 	w.WriteHeader(statusCode)
 	w.Write([]byte(message))
 }
-

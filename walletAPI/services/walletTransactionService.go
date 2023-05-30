@@ -3,14 +3,15 @@ package services
 import (
 	"database/sql"
 	"fmt"
-
+	"sync"
 	"github.com/labora-wallet/walletAPI/model"
 	"github.com/labora-wallet/walletAPI/services/interfaces"
 )
 
 type PostgresWalletTransactionDBHandler struct {
-	Db                       *sql.DB
-	WalletServiceImpl        interfaces.WalletDBHandler
+	Db                *sql.DB
+	WalletServiceImpl interfaces.WalletDBHandler
+	Mutex             *sync.Mutex
 }
 
 func (p *PostgresWalletTransactionDBHandler) Transfer(transactionData model.WalletTransactionDTO) (int64, error) {
@@ -88,7 +89,7 @@ func (p *PostgresWalletTransactionDBHandler) AddToAccount(transactionData model.
 	if err != nil {
 		return rowsAffected, err
 	}
-	
+
 	return rowsAffected, nil
 }
 
@@ -97,28 +98,31 @@ func (p *PostgresWalletTransactionDBHandler) UpdateWalletBalance(walletNumber, t
 	var err error
 	var response sql.Result
 
+	p.Mutex.Lock()
+
 	wallet, err := p.WalletServiceImpl.GetWalletByNumber(walletNumber)
 	if err != nil {
 		return rowsAffected, err
 	}
-	
+
 	if wallet == nil {
 		return rowsAffected, fmt.Errorf("Billetera de número %s no encontrada", walletNumber)
 	}
 	if transactionType == model.TRANSACTIONWITHDRAW {
 		amount = -amount
 	}
-	
-	query := updateBalanceQuery(amount, wallet.ID)
+
+	query := updateBalanceQuery()
 
 	if tx != nil {
-		response, err = tx.Exec(query)
+		response, err = tx.Exec(query, amount, wallet.ID)
 	} else {
-		response, err = p.Db.Exec(query)
+		response, err = p.Db.Exec(query, amount, wallet.ID)
 	}
 	if err != nil {
 		return rowsAffected, err
 	}
+	p.Mutex.Unlock()
 	
 	rowsAffected, err = response.RowsAffected()
 	if err != nil {
@@ -128,10 +132,10 @@ func (p *PostgresWalletTransactionDBHandler) UpdateWalletBalance(walletNumber, t
 	return rowsAffected, nil
 }
 
-func updateBalanceQuery(amount float64, id int64) string {
-	query := fmt.Sprintf(`UPDATE public.wallet
-						SET balance=balance+%f
-						WHERE id=%d;`, amount, id)
+func updateBalanceQuery() string {
+	query := `UPDATE public.wallet
+						SET balance=balance+$1
+						WHERE id=$2;`
 
 	return query
 }

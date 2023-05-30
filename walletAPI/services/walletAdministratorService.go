@@ -9,19 +9,18 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-
 	"github.com/labora-wallet/walletAPI/model"
 	"github.com/labora-wallet/walletAPI/services/interfaces"
 )
 
-type PostgresWalletCreationtDBHandler struct {
+type PostgresWalletAdministrator struct {
 	Db                       *sql.DB
 	CustomerServiceImpl      interfaces.CustomerDBHandler
 	WalletServiceImpl        interfaces.WalletDBHandler
 	WalletTrackerServiceImpl interfaces.WalletTrackerDBHandler
 }
 
-func (p *PostgresWalletCreationtDBHandler) AttemptWalletCreation(wallet model.WalletDTO) (string, int64, error) {
+func (p *PostgresWalletAdministrator) AttemptWalletCreation(wallet model.WalletDTO) (string, int64, error) {
 	var rowsAffected int64
 	transaction, err := p.Db.Begin()
 	if err != nil {
@@ -70,7 +69,7 @@ func (p *PostgresWalletCreationtDBHandler) AttemptWalletCreation(wallet model.Wa
 }
 
 // Method that returns background check information from Truora API
-func (p *PostgresWalletCreationtDBHandler) ValidateScore(nationalIdentityNumber, countryId string) string {
+func (p *PostgresWalletAdministrator) ValidateScore(nationalIdentityNumber, countryId string) string {
 	data := url.Values{}
 	config := p.WalletServiceImpl.GetConfig()
 	data.Set("national_id", nationalIdentityNumber)

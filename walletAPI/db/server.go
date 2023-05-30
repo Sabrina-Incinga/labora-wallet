@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -116,15 +117,16 @@ func createTables(connection *sql.DB) error {
 }
 
 func startup(connection *sql.DB, dbConfig *variablesHandler.DbConfig) (*controllers.WalletController, *controllers.WalletTransactionController) {
+	var mutex *sync.Mutex
 	customerService := &services.PostgresCustomerDBHandler{Db: connection}
 	walletService := &services.PostgresWalletDBHandler{Db: connection, Config: *dbConfig}
 	walletTrackerService := &services.PostgresWalletTrackerDBHandler{Db: connection}
-	walletCreationService := &services.PostgresWalletCreationtDBHandler{Db: connection, CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService}
-	walletController := &controllers.WalletController{CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService, WalletCreationServiceImpl: walletCreationService}
+	walletAdministratorService := &services.PostgresWalletAdministrator{Db: connection, CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService}
+	walletController := &controllers.WalletController{CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService, WalletCreationServiceImpl: walletAdministratorService}
 
-	transactionService := &services.PostgresWalletTransactionDBHandler{Db: connection, WalletServiceImpl:walletService}
+	transactionService := &services.PostgresWalletTransactionDBHandler{Db: connection, WalletServiceImpl: walletService, Mutex: mutex}
 	transactionController := &controllers.WalletTransactionController{WalletTransactionServiceImpl: transactionService}
-	
+
 	return walletController, transactionController
 }
 
@@ -151,7 +153,7 @@ func StartServer() {
 	router.HandleFunc("/wallet/transaction/withdraw", transactionController.Withdraw).Methods("POST")
 	router.HandleFunc("/wallet/transaction/add", transactionController.AddToAccount).Methods("POST")
 	router.HandleFunc("/wallet/transaction/transfer", transactionController.Transfer).Methods("POST")
-	
+
 	corsOptions := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://localhost:5173"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},

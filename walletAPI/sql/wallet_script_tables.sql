@@ -49,3 +49,34 @@ CREATE TABLE IF NOT EXISTS public.wallet_tracker
 
 ALTER TABLE IF EXISTS public.wallet_tracker
     OWNER to postgres;
+
+ALTER TABLE IF EXISTS public.wallet
+DROP CONSTRAINT IF EXISTS only_positive_balance_allowed;
+
+ALTER TABLE IF EXISTS public.wallet
+ADD CONSTRAINT only_positive_balance_allowed CHECK (balance >= 0);
+
+ALTER TABLE IF EXISTS public.wallet_tracker DROP COLUMN IF EXISTS track_type;
+
+ALTER TABLE IF EXISTS public.wallet_tracker
+ADD COLUMN track_type varchar(50) NOT NULL;
+
+ALTER TABLE IF EXISTS public.wallet
+ALTER COLUMN creation_date TYPE timestamp;
+
+ALTER TABLE IF EXISTS public.wallet_tracker
+ALTER COLUMN record_date TYPE timestamp;
+
+CREATE TABLE IF NOT EXISTS public.wallet_movement
+(
+    id SERIAL PRIMARY KEY,
+    wallet_id integer NOT NULL,
+    movement_date timestamp NOT NULL,
+    movement_type varchar(10) NOT NULL,
+    amount double precision NOT NULL,
+    CONSTRAINT wallet_id FOREIGN KEY (wallet_id)
+        REFERENCES public.wallet (id) MATCH SIMPLE
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+        NOT VALID
+);
