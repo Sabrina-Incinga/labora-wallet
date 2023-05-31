@@ -36,7 +36,7 @@ func (p *PostgresWalletAdministrator) AttemptWalletCreation(wallet dtos.WalletDT
 		}
 	}()
 
-	customerId, err := p.CustomerServiceImpl.CreateCustomer(wallet.CustomerDTO, transaction)
+	customerId, err := p.CustomerServiceImpl.CreateCustomer(*wallet.CustomerDTO, transaction)
 
 	if err != nil {
 		return "", rowsAffected, err

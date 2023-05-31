@@ -2,8 +2,6 @@ package services
 
 import (
 	"database/sql"
-	"fmt"
-
 	"github.com/labora-wallet/walletAPI/model"
 	"github.com/labora-wallet/walletAPI/model/dtos"
 )
@@ -26,9 +24,6 @@ func (p *PostgresWalletMovementDBHandler) CreateWalletMovement(movementData dtos
 	} else {
 		receiverWalletID.Valid = false
 	}
-
-	fmt.Println(receiverWalletID)
-	fmt.Println(*movementData.ReceiverWalletId)
 
 	if tx != nil {
 		response, err = tx.Exec(query, movementData.SenderWalletId, receiverWalletID, movementData.MovementDate, movementData.MovementType, movementData.Amount)

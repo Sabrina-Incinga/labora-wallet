@@ -105,6 +105,7 @@ func (p *PostgresWalletDBHandler) GetWalletStatusById(id int64) (*dtos.WalletSta
 func (p *PostgresWalletDBHandler) GetFullWalletDataById(id int64) (*dtos.WalletDTO, error) {
 	var wallet dtos.WalletDTO
 	wallet.Movements = make([]dtos.WalletMovementDTO, 0)
+	wallet.CustomerDTO = nil
 	rows, err := p.Db.Query(`SELECT 
 							 customer_id
 							, wallet_number
@@ -116,7 +117,7 @@ func (p *PostgresWalletDBHandler) GetFullWalletDataById(id int64) (*dtos.WalletD
 							, movement_type
 							, amount
 							FROM public.wallet w
-							INNER JOIN public.wallet_movement wm
+							LEFT JOIN public.wallet_movement wm
 							ON wm.sender_wallet_id = w.id
 							WHERE w.id=$1;`, id)
 
@@ -127,13 +128,46 @@ func (p *PostgresWalletDBHandler) GetFullWalletDataById(id int64) (*dtos.WalletD
 
 	for rows.Next() {
 		var movement dtos.WalletMovementDTO
+		var senderWalletIDAux, receiverWalletIDAux sql.NullInt64
+		var movementTypeAux sql.NullString
+		var amountAux sql.NullFloat64
+		var movementDateAux sql.NullTime
 
-		err = rows.Scan(&wallet.CustomerId, &wallet.WalletNumber, &wallet.CreationDate, &wallet.Balance, &movement.SenderWalletId, &movement.ReceiverWalletId, &movement.MovementDate, &movement.MovementType, &movement.Amount)
+		err = rows.Scan(&wallet.CustomerId, &wallet.WalletNumber, &wallet.CreationDate, &wallet.Balance, &senderWalletIDAux, &receiverWalletIDAux, &movementDateAux, &movementTypeAux, &amountAux)
 		if err != nil {
 			return &wallet, err
 		}
 
-		wallet.Movements = append(wallet.Movements, movement)
+		hasData := false
+
+		if senderWalletIDAux.Valid {
+			movement.SenderWalletId = senderWalletIDAux.Int64
+			hasData = true
+		}
+
+		if receiverWalletIDAux.Valid {
+			movement.ReceiverWalletId = &receiverWalletIDAux.Int64
+			hasData = true
+		}
+
+		if movementTypeAux.Valid {
+			movement.MovementType = movementTypeAux.String
+			hasData = true
+		}
+
+		if amountAux.Valid{
+			movement.Amount = amountAux.Float64
+			hasData = true
+		}
+
+		if movementDateAux.Valid {
+			movement.MovementDate = movementDateAux.Time
+			hasData = true
+		}
+
+		if hasData {
+			wallet.Movements = append(wallet.Movements, movement)
+		}
 	}
 
 	return &wallet, nil

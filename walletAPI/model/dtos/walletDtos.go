@@ -8,7 +8,7 @@ import (
 
 type WalletDTO struct {
 	CustomerId   int64               `json:"customer_id,omitempty"`
-	CustomerDTO  CustomerDTO         `json:"customer"`
+	CustomerDTO  *CustomerDTO         `json:"customer,omitempty"`
 	WalletNumber string              `json:"wallet_number,omitempty"`
 	CreationDate time.Time           `json:"creation_date,omitempty"`
 	Balance      float64             `json:"balance"`
@@ -30,7 +30,7 @@ func InitializeWallet() WalletDTO {
 	var customerDto CustomerDTO
 	return WalletDTO{
 		CustomerId:   0,
-		CustomerDTO:  customerDto,
+		CustomerDTO:  &customerDto,
 		WalletNumber: "",
 		CreationDate: time.Now(),
 		Balance:      0,

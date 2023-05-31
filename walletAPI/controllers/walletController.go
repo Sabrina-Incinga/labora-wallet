@@ -42,6 +42,7 @@ func (c *WalletController) CreateWallet(w http.ResponseWriter, r *http.Request) 
 	}
 	if rowsAffected == 0 {
 		ThrowError(fmt.Errorf("La billetera no pudo ser creada"), w, http.StatusBadRequest)
+		return
 	}
 	Ok(w, http.StatusOK, "Billetera creada correctamente")
 }

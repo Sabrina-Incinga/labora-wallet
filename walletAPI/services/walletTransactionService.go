@@ -18,44 +18,43 @@ type PostgresWalletTransactionDBHandler struct {
 }
 
 func (p *PostgresWalletTransactionDBHandler) Transfer(transactionData dtos.WalletTransactionDTO) (int64, error) {
-	var rowsAffected int64
+	var rowsAffected, rowsAffected1, rowsAffected2 int64
 	transaction, err := p.Db.Begin()
 	if err != nil {
+		return rowsAffected, err
+	}
+	trackerDto := dtos.InitializeWalletTracker()
+	if transactionData.OriginWalletNumber == transactionData.DestinationWalletNumber {
+		err = fmt.Errorf("No es posible realizar una transferencia a la misma cuenta")
 		return rowsAffected, err
 	}
 
 	defer func() {
 		if err != nil {
+			trackerDto.RequestStatus = dtos.FAILEDREQUEST
+			err = getWalletDataAndStoreTracks(p, transactionData, dtos.TRANSFERMOVEMENT, transaction, trackerDto)
 			transaction.Rollback()
 		} else {
 			err = transaction.Commit()
 		}
 	}()
 
-	trackerDto := dtos.InitializeWalletTracker()
-
+	rowsAffected1, err = p.UpdateWalletBalance(transactionData.OriginWalletNumber, dtos.WITHDRAWMOVEMENT, transactionData.Amount, transaction)
 	if err != nil {
-		trackerDto.RequestStatus = dtos.FAILEDREQUEST
 		return rowsAffected, err
 	}
+	rowsAffected2, err = p.UpdateWalletBalance(transactionData.DestinationWalletNumber, dtos.DEPOSITMOVEMENT, transactionData.Amount, transaction)
+	if err != nil {
+		return rowsAffected, err
+	}
+
 	trackerDto.RequestStatus = dtos.SUCCESSFULREQUEST
-
 	err = getWalletDataAndStoreTracks(p, transactionData, dtos.TRANSFERMOVEMENT, transaction, trackerDto)
-	if err != nil {
-		return rowsAffected, err
-	}
-
-	rowsAffected1, err := p.UpdateWalletBalance(transactionData.OriginWalletNumber, dtos.WITHDRAWMOVEMENT, transactionData.Amount, transaction)
 
 	if err != nil {
 		return rowsAffected, err
 	}
 
-	rowsAffected2, err := p.UpdateWalletBalance(transactionData.DestinationWalletNumber, dtos.DEPOSITMOVEMENT, transactionData.Amount, transaction)
-
-	if err != nil {
-		return rowsAffected, err
-	}
 	rowsAffected = rowsAffected1 + rowsAffected2
 
 	return rowsAffected, nil
@@ -115,29 +114,26 @@ func performWalletMovement(transactionData dtos.WalletTransactionDTO, p *Postgre
 		return rowsAffected, err
 	}
 
+	trackerDto := dtos.InitializeWalletTracker()
+	transactionData.DestinationWalletNumber = ""
 	defer func() {
 		if err != nil {
+			trackerDto.RequestStatus = dtos.FAILEDREQUEST
+			err = getWalletDataAndStoreTracks(p, transactionData, movementType, transaction, trackerDto)
 			transaction.Rollback()
 		} else {
 			err = transaction.Commit()
 		}
 	}()
 
-	trackerDto := dtos.InitializeWalletTracker()
-
+	rowsAffected, err = p.UpdateWalletBalance(transactionData.OriginWalletNumber, movementType, transactionData.Amount, transaction)
 	if err != nil {
-		trackerDto.RequestStatus = dtos.FAILEDREQUEST
 		return rowsAffected, err
 	}
+
 	trackerDto.RequestStatus = dtos.SUCCESSFULREQUEST
 
 	err = getWalletDataAndStoreTracks(p, transactionData, movementType, transaction, trackerDto)
-	if err != nil {
-		return rowsAffected, err
-	}
-
-	rowsAffected, err = p.UpdateWalletBalance(transactionData.OriginWalletNumber, movementType, transactionData.Amount, transaction)
-
 	if err != nil {
 		return rowsAffected, err
 	}
@@ -158,7 +154,7 @@ func getWalletDataAndStoreTracks(p *PostgresWalletTransactionDBHandler, transact
 
 	trackerDto.CreationStatus = "NA"
 	trackerDto.TrackType = dtos.WALLETMOVEMENT
-	
+
 	walletMovementDTO := dtos.InitializeWalletMovement()
 	walletMovementDTO.ReceiverWalletId = new(int64)
 	if originWallet != nil {
