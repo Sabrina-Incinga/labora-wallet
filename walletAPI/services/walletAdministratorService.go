@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+
 	"github.com/labora-wallet/walletAPI/model"
+	"github.com/labora-wallet/walletAPI/model/dtos"
 	"github.com/labora-wallet/walletAPI/services/interfaces"
 )
 
@@ -20,7 +22,7 @@ type PostgresWalletAdministrator struct {
 	WalletTrackerServiceImpl interfaces.WalletTrackerDBHandler
 }
 
-func (p *PostgresWalletAdministrator) AttemptWalletCreation(wallet model.WalletDTO) (string, int64, error) {
+func (p *PostgresWalletAdministrator) AttemptWalletCreation(wallet dtos.WalletDTO) (string, int64, error) {
 	var rowsAffected int64
 	transaction, err := p.Db.Begin()
 	if err != nil {
@@ -44,27 +46,26 @@ func (p *PostgresWalletAdministrator) AttemptWalletCreation(wallet model.WalletD
 
 	validationResult := p.ValidateScore(wallet.CustomerDTO.NationalIdentityNumber, wallet.CustomerDTO.CountryId)
 
-	trackerDto := model.InitializeWalletTracker()
+	trackerDto := dtos.InitializeWalletTracker()
 	trackerDto.CreationStatus = validationResult
 	trackerDto.CustomerId = customerId
+	trackerDto.TrackType = dtos.WALLETCREATION
+	
+	if validationResult == model.StatusCompleted {
+		rowsAffected, err = p.WalletServiceImpl.CreateWallet(wallet, transaction)
+		
+		if err != nil {
+			trackerDto.RequestStatus = dtos.FAILEDREQUEST
+			return validationResult, rowsAffected, err
+		}
+		trackerDto.RequestStatus = dtos.SUCCESSFULREQUEST
+	}
 	_, err = p.WalletTrackerServiceImpl.CreateWalletTracker(trackerDto, transaction)
 
 	if err != nil {
 		return validationResult, rowsAffected, err
 	}
-
-	if validationResult == model.StatusCompleted {
-		rowsAffected, err = p.WalletServiceImpl.CreateWallet(wallet, transaction)
-
-		if err != nil {
-			return validationResult, rowsAffected, err
-		}
-	}
-
-	if err != nil {
-		return validationResult, rowsAffected, err
-	}
-
+	
 	return validationResult, rowsAffected, nil
 }
 
@@ -112,4 +113,46 @@ func (p *PostgresWalletAdministrator) ValidateScore(nationalIdentityNumber, coun
 	}
 	return model.StatusCompleted
 
+}
+
+func (p *PostgresWalletAdministrator) AttemptWalletRemoval(walletId int64) (int64, error){
+	var rowsAffected int64
+	transaction, err := p.Db.Begin()
+	if err != nil {
+		return  rowsAffected, err
+	}
+	defer func() {
+		if err != nil {
+			transaction.Rollback()
+		} else {
+			err = transaction.Commit()
+		}
+	}()
+
+	wallet, err := p.WalletServiceImpl.GetWalletStatusById(walletId)
+
+	if err != nil{
+		return rowsAffected, err
+	}
+
+	trackerDto := dtos.InitializeWalletTracker()
+	trackerDto.CreationStatus = "NA"
+	trackerDto.CustomerId = wallet.Wallet.CustomerId
+	trackerDto.TrackType = dtos.WALLETREMOVAL
+	
+	
+	rowsAffected, err = p.WalletServiceImpl.DeleteWallet(walletId, transaction)
+	
+	if err != nil{
+		trackerDto.RequestStatus = dtos.FAILEDREQUEST
+		return rowsAffected, err
+	}
+	trackerDto.RequestStatus = dtos.SUCCESSFULREQUEST
+
+	_, err = p.WalletTrackerServiceImpl.CreateWalletTracker(trackerDto, nil)
+	if err != nil{
+		return rowsAffected, err
+	}
+
+	return rowsAffected, nil
 }

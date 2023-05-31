@@ -2,14 +2,16 @@ package services
 
 import (
 	"database/sql"
+
 	"github.com/labora-wallet/walletAPI/model"
+	"github.com/labora-wallet/walletAPI/model/dtos"
 )
 
 type PostgresCustomerDBHandler struct {
 	Db *sql.DB
 }
 
-func (p *PostgresCustomerDBHandler) CreateCustomer(customer model.CustomerDTO, tx *sql.Tx) (int64, error) {
+func (p *PostgresCustomerDBHandler) CreateCustomer(customer dtos.CustomerDTO, tx *sql.Tx) (int64, error) {
 	var id int64
 	var row *sql.Row
 
@@ -84,7 +86,7 @@ func (p *PostgresCustomerDBHandler) GetCustomerById(id int64) (*model.Customer, 
 	return &customer, nil
 }
 
-func (p *PostgresCustomerDBHandler) UpdateCustomer(dto model.CustomerDTO, id int64, tx *sql.Tx) (int64, error) {
+func (p *PostgresCustomerDBHandler) UpdateCustomer(dto dtos.CustomerDTO, id int64, tx *sql.Tx) (int64, error) {
 	var rowsAffected int64
 	var err error
 	var response sql.Result

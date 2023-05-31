@@ -8,22 +8,23 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/labora-wallet/walletAPI/model/dtos"
 	"github.com/labora-wallet/walletAPI/model"
 	"github.com/labora-wallet/walletAPI/services/interfaces"
 )
 
 type WalletController struct {
-	CustomerServiceImpl       interfaces.CustomerDBHandler
-	WalletServiceImpl         interfaces.WalletDBHandler
-	WalletTrackerServiceImpl  interfaces.WalletTrackerDBHandler
-	WalletCreationServiceImpl interfaces.WalletAdministratorHandler
+	CustomerServiceImpl            interfaces.CustomerDBHandler
+	WalletServiceImpl              interfaces.WalletDBHandler
+	WalletTrackerServiceImpl       interfaces.WalletTrackerDBHandler
+	WalletAdministratorServiceImpl interfaces.WalletAdministratorHandler
 }
 
 // Method that creates a new wallet if validation requirements are met
 func (c *WalletController) CreateWallet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var dto model.WalletDTO = model.InitializeWallet()
+	var dto dtos.WalletDTO = dtos.InitializeWallet()
 	err := json.NewDecoder(r.Body).Decode(&dto)
 
 	defer r.Body.Close()
@@ -33,7 +34,7 @@ func (c *WalletController) CreateWallet(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	validation, rowsAffected, err := c.WalletCreationServiceImpl.AttemptWalletCreation(dto)
+	validation, rowsAffected, err := c.WalletAdministratorServiceImpl.AttemptWalletCreation(dto)
 
 	if validation == model.StatusRejected {
 		Ok(w, http.StatusOK, "El usuario no pasa las validaciones para la creación de la billetera")
@@ -62,12 +63,38 @@ func (c *WalletController) GetWalletStatus(w http.ResponseWriter, r *http.Reques
 		ThrowError(err, w, http.StatusBadRequest)
 		return
 	}
-	if walletStatus == "" {
+	if walletStatus == nil {
 		Ok(w, http.StatusOK, fmt.Sprintf(`La billetera de id %d no se encontró`, id))
 		return
 	}
 
-	Ok(w, http.StatusOK, fmt.Sprintf(`El status de la billetera de id %d es: %s`, id, walletStatus))
+	Ok(w, http.StatusOK, fmt.Sprintf(`El status de la billetera de id %d es: %s`, id, walletStatus.Status))
+}
+
+func (c *WalletController) GetWalletById(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		ThrowError(err, w, http.StatusBadRequest)
+		return
+	}
+
+	wallet, err := c.WalletServiceImpl.GetFullWalletDataById(int64(id))
+
+	if err != nil {
+		ThrowError(err, w, http.StatusBadRequest)
+		return
+	}
+	if wallet == nil {
+		Ok(w, http.StatusOK, fmt.Sprintf(`La billetera de id %d no se encontró`, id))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(wallet)
 }
 
 func (c *WalletController) DeleteWallet(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +109,7 @@ func (c *WalletController) DeleteWallet(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	rowsAffected, err := c.WalletServiceImpl.DeleteWallet(int64(id), nil)
+	rowsAffected, err := c.WalletAdministratorServiceImpl.AttemptWalletRemoval(int64(id))
 
 	if err != nil {
 		ThrowError(err, w, http.StatusBadRequest)

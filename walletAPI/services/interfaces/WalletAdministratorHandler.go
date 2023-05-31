@@ -1,10 +1,11 @@
 package interfaces
 
 import (
-	"github.com/labora-wallet/walletAPI/model"
+	"github.com/labora-wallet/walletAPI/model/dtos"
 )
 
 type WalletAdministratorHandler interface {
-	AttemptWalletCreation(wallet model.WalletDTO) (string, int64, error)
+	AttemptWalletCreation(wallet dtos.WalletDTO) (string, int64, error)
+	AttemptWalletRemoval(walletId int64) (int64, error)
 	ValidateScore(nationalIdentityNumber, countryId string) string
 }

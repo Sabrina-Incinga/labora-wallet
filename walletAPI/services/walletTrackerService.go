@@ -2,14 +2,16 @@ package services
 
 import (
 	"database/sql"
+
 	"github.com/labora-wallet/walletAPI/model"
+	"github.com/labora-wallet/walletAPI/model/dtos"
 )
 
 type PostgresWalletTrackerDBHandler struct {
 	Db *sql.DB
 }
 
-func (p *PostgresWalletTrackerDBHandler) CreateWalletTracker(tracker model.WalletTrackerDTO, tx *sql.Tx) (int64, error) {
+func (p *PostgresWalletTrackerDBHandler) CreateWalletTracker(tracker dtos.WalletTrackerDTO, tx *sql.Tx) (int64, error) {
 	var rowsAffected int64
 	var err error
 	var response sql.Result
@@ -17,9 +19,9 @@ func (p *PostgresWalletTrackerDBHandler) CreateWalletTracker(tracker model.Walle
 	query := createWalletTrackerQuery()
 
 	if tx != nil {
-		response, err = tx.Exec(query, tracker.CustomerId, tracker.RecordDate, tracker.CreationStatus)
+		response, err = tx.Exec(query, tracker.CustomerId, tracker.RecordDate, tracker.CreationStatus, tracker.TrackType, tracker.RequestStatus)
 	}else{
-		response, err = p.Db.Exec(query, tracker.CustomerId, tracker.RecordDate, tracker.CreationStatus)
+		response, err = p.Db.Exec(query, tracker.CustomerId, tracker.RecordDate, tracker.CreationStatus, tracker.TrackType, tracker.RequestStatus)
 	}
 
 	if err != nil {
@@ -41,6 +43,8 @@ func (p *PostgresWalletTrackerDBHandler) GetWalletTrackByCustomerId(customerId i
 						, customer_id
 						, record_date
 						, creation_status
+						, track_type
+						, request_status
 						FROM public.wallet_tracker
 						WHERE customer_id=$1;`, customerId)
 	if err != nil {
@@ -51,7 +55,7 @@ func (p *PostgresWalletTrackerDBHandler) GetWalletTrackByCustomerId(customerId i
 	for rows.Next() {
 		var tracker model.WalletTracker
 
-		err = rows.Scan(&tracker.ID, &tracker.CustomerId, &tracker.RecordDate, &tracker.CreationStatus)
+		err = rows.Scan(&tracker.ID, &tracker.CustomerId, &tracker.RecordDate, &tracker.CreationStatus, &tracker.TrackType, &tracker.RequestStatus)
 		if err != nil {
 			return trackers, err
 		}
@@ -64,6 +68,6 @@ func (p *PostgresWalletTrackerDBHandler) GetWalletTrackByCustomerId(customerId i
 
 func createWalletTrackerQuery() string{
 	return `INSERT INTO public.wallet_tracker(
-		customer_id, record_date, creation_status)
-		VALUES ($1, $2, $3);`
+		customer_id, record_date, creation_status, track_type, request_status)
+		VALUES ($1, $2, $3, $4, $5);`
 }

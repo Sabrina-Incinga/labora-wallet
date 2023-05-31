@@ -117,14 +117,15 @@ func createTables(connection *sql.DB) error {
 }
 
 func startup(connection *sql.DB, dbConfig *variablesHandler.DbConfig) (*controllers.WalletController, *controllers.WalletTransactionController) {
-	var mutex *sync.Mutex
+	var mutex sync.Mutex
 	customerService := &services.PostgresCustomerDBHandler{Db: connection}
 	walletService := &services.PostgresWalletDBHandler{Db: connection, Config: *dbConfig}
 	walletTrackerService := &services.PostgresWalletTrackerDBHandler{Db: connection}
 	walletAdministratorService := &services.PostgresWalletAdministrator{Db: connection, CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService}
-	walletController := &controllers.WalletController{CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService, WalletCreationServiceImpl: walletAdministratorService}
+	walletController := &controllers.WalletController{CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService, WalletAdministratorServiceImpl: walletAdministratorService}
 
-	transactionService := &services.PostgresWalletTransactionDBHandler{Db: connection, WalletServiceImpl: walletService, Mutex: mutex}
+	walletMovementService := &services.PostgresWalletMovementDBHandler{Db: connection}
+	transactionService := &services.PostgresWalletTransactionDBHandler{Db: connection, WalletServiceImpl: walletService, WalletMovementServiceImpl: walletMovementService, WalletTrackerServiceImpl: walletTrackerService, Mutex: &mutex}
 	transactionController := &controllers.WalletTransactionController{WalletTransactionServiceImpl: transactionService}
 
 	return walletController, transactionController
@@ -148,6 +149,7 @@ func StartServer() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/wallet", walletController.CreateWallet).Methods("POST")
+	router.HandleFunc("/wallet/{id}", walletController.GetWalletById).Methods("GET")
 	router.HandleFunc("/wallet/getStatusById/{id}", walletController.GetWalletStatus).Methods("GET")
 	router.HandleFunc("/wallet/delete/{id}", walletController.DeleteWallet).Methods("DELETE")
 	router.HandleFunc("/wallet/transaction/withdraw", transactionController.Withdraw).Methods("POST")

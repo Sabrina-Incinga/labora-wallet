@@ -4,17 +4,20 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-	"github.com/labora-wallet/walletAPI/model"
+
+	"github.com/labora-wallet/walletAPI/model/dtos"
 	"github.com/labora-wallet/walletAPI/services/interfaces"
 )
 
 type PostgresWalletTransactionDBHandler struct {
-	Db                *sql.DB
-	WalletServiceImpl interfaces.WalletDBHandler
-	Mutex             *sync.Mutex
+	Db                        *sql.DB
+	WalletServiceImpl         interfaces.WalletDBHandler
+	WalletMovementServiceImpl interfaces.WalletMovementDBHandler
+	WalletTrackerServiceImpl  interfaces.WalletTrackerDBHandler
+	Mutex                     *sync.Mutex
 }
 
-func (p *PostgresWalletTransactionDBHandler) Transfer(transactionData model.WalletTransactionDTO) (int64, error) {
+func (p *PostgresWalletTransactionDBHandler) Transfer(transactionData dtos.WalletTransactionDTO) (int64, error) {
 	var rowsAffected int64
 	transaction, err := p.Db.Begin()
 	if err != nil {
@@ -29,13 +32,26 @@ func (p *PostgresWalletTransactionDBHandler) Transfer(transactionData model.Wall
 		}
 	}()
 
-	rowsAffected1, err := p.UpdateWalletBalance(transactionData.OriginWalletNumber, model.TRANSACTIONWITHDRAW, transactionData.Amount, transaction)
+	trackerDto := dtos.InitializeWalletTracker()
+
+	if err != nil {
+		trackerDto.RequestStatus = dtos.FAILEDREQUEST
+		return rowsAffected, err
+	}
+	trackerDto.RequestStatus = dtos.SUCCESSFULREQUEST
+
+	err = getWalletDataAndStoreTracks(p, transactionData, dtos.TRANSFERMOVEMENT, transaction, trackerDto)
+	if err != nil {
+		return rowsAffected, err
+	}
+
+	rowsAffected1, err := p.UpdateWalletBalance(transactionData.OriginWalletNumber, dtos.WITHDRAWMOVEMENT, transactionData.Amount, transaction)
 
 	if err != nil {
 		return rowsAffected, err
 	}
 
-	rowsAffected2, err := p.UpdateWalletBalance(transactionData.DestinationWalletNumber, model.TRANSACTIONADD, transactionData.Amount, transaction)
+	rowsAffected2, err := p.UpdateWalletBalance(transactionData.DestinationWalletNumber, dtos.DEPOSITMOVEMENT, transactionData.Amount, transaction)
 
 	if err != nil {
 		return rowsAffected, err
@@ -45,52 +61,12 @@ func (p *PostgresWalletTransactionDBHandler) Transfer(transactionData model.Wall
 	return rowsAffected, nil
 }
 
-func (p *PostgresWalletTransactionDBHandler) Withdraw(transactionData model.WalletTransactionDTO) (int64, error) {
-	var rowsAffected int64
-	transaction, err := p.Db.Begin()
-	if err != nil {
-		return rowsAffected, err
-	}
-
-	defer func() {
-		if err != nil {
-			transaction.Rollback()
-		} else {
-			err = transaction.Commit()
-		}
-	}()
-
-	rowsAffected, err = p.UpdateWalletBalance(transactionData.OriginWalletNumber, model.TRANSACTIONWITHDRAW, transactionData.Amount, transaction)
-
-	if err != nil {
-		return rowsAffected, err
-	}
-
-	return rowsAffected, nil
+func (p *PostgresWalletTransactionDBHandler) Withdraw(transactionData dtos.WalletTransactionDTO) (int64, error) {
+	return performWalletMovement(transactionData, p, dtos.WITHDRAWMOVEMENT)
 }
 
-func (p *PostgresWalletTransactionDBHandler) AddToAccount(transactionData model.WalletTransactionDTO) (int64, error) {
-	var rowsAffected int64
-	transaction, err := p.Db.Begin()
-	if err != nil {
-		return rowsAffected, err
-	}
-
-	defer func() {
-		if err != nil {
-			transaction.Rollback()
-		} else {
-			err = transaction.Commit()
-		}
-	}()
-
-	rowsAffected, err = p.UpdateWalletBalance(transactionData.OriginWalletNumber, model.TRANSACTIONADD, transactionData.Amount, transaction)
-
-	if err != nil {
-		return rowsAffected, err
-	}
-
-	return rowsAffected, nil
+func (p *PostgresWalletTransactionDBHandler) AddToAccount(transactionData dtos.WalletTransactionDTO) (int64, error) {
+	return performWalletMovement(transactionData, p, dtos.DEPOSITMOVEMENT)
 }
 
 func (p *PostgresWalletTransactionDBHandler) UpdateWalletBalance(walletNumber, transactionType string, amount float64, tx *sql.Tx) (int64, error) {
@@ -108,7 +84,7 @@ func (p *PostgresWalletTransactionDBHandler) UpdateWalletBalance(walletNumber, t
 	if wallet == nil {
 		return rowsAffected, fmt.Errorf("Billetera de número %s no encontrada", walletNumber)
 	}
-	if transactionType == model.TRANSACTIONWITHDRAW {
+	if transactionType == dtos.WITHDRAWMOVEMENT {
 		amount = -amount
 	}
 
@@ -123,13 +99,89 @@ func (p *PostgresWalletTransactionDBHandler) UpdateWalletBalance(walletNumber, t
 		return rowsAffected, err
 	}
 	p.Mutex.Unlock()
-	
+
 	rowsAffected, err = response.RowsAffected()
 	if err != nil {
 		return rowsAffected, err
 	}
 
 	return rowsAffected, nil
+}
+
+func performWalletMovement(transactionData dtos.WalletTransactionDTO, p *PostgresWalletTransactionDBHandler, movementType string) (int64, error) {
+	var rowsAffected int64
+	transaction, err := p.Db.Begin()
+	if err != nil {
+		return rowsAffected, err
+	}
+
+	defer func() {
+		if err != nil {
+			transaction.Rollback()
+		} else {
+			err = transaction.Commit()
+		}
+	}()
+
+	trackerDto := dtos.InitializeWalletTracker()
+
+	if err != nil {
+		trackerDto.RequestStatus = dtos.FAILEDREQUEST
+		return rowsAffected, err
+	}
+	trackerDto.RequestStatus = dtos.SUCCESSFULREQUEST
+
+	err = getWalletDataAndStoreTracks(p, transactionData, movementType, transaction, trackerDto)
+	if err != nil {
+		return rowsAffected, err
+	}
+
+	rowsAffected, err = p.UpdateWalletBalance(transactionData.OriginWalletNumber, movementType, transactionData.Amount, transaction)
+
+	if err != nil {
+		return rowsAffected, err
+	}
+
+	return rowsAffected, nil
+}
+
+func getWalletDataAndStoreTracks(p *PostgresWalletTransactionDBHandler, transactionData dtos.WalletTransactionDTO, movementType string, transaction *sql.Tx, trackerDto dtos.WalletTrackerDTO) error {
+	originWallet, err := p.WalletServiceImpl.GetWalletByNumber(transactionData.OriginWalletNumber)
+	if err != nil {
+		return err
+	}
+
+	destinationWallet, err := p.WalletServiceImpl.GetWalletByNumber(transactionData.DestinationWalletNumber)
+	if err != nil {
+		return err
+	}
+
+	trackerDto.CreationStatus = "NA"
+	trackerDto.TrackType = dtos.WALLETMOVEMENT
+	
+	walletMovementDTO := dtos.InitializeWalletMovement()
+	walletMovementDTO.ReceiverWalletId = new(int64)
+	if originWallet != nil {
+		trackerDto.CustomerId = originWallet.CustomerId
+		walletMovementDTO.SenderWalletId = originWallet.ID
+	}
+	if destinationWallet != nil {
+		*walletMovementDTO.ReceiverWalletId = destinationWallet.ID
+	}
+	walletMovementDTO.MovementType = movementType
+	walletMovementDTO.Amount = transactionData.Amount
+
+	_, err = p.WalletTrackerServiceImpl.CreateWalletTracker(trackerDto, nil)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.WalletMovementServiceImpl.CreateWalletMovement(walletMovementDTO, transaction)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func updateBalanceQuery() string {

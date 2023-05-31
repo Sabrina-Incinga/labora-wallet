@@ -9,6 +9,6 @@ type ValidationInfo struct {
 }
 
 const (
-	StatusRejected  = "RECHAZADO"
-	StatusCompleted = "COMPLETADO"
+	StatusRejected  = "REJECTED"
+	StatusCompleted = "COMPLETED"
 )

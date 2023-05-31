@@ -9,6 +9,7 @@ import (
 
 	"github.com/labora-wallet/walletAPI/db/variablesHandler"
 	"github.com/labora-wallet/walletAPI/model"
+	"github.com/labora-wallet/walletAPI/model/dtos"
 )
 
 type PostgresWalletDBHandler struct {
@@ -16,7 +17,7 @@ type PostgresWalletDBHandler struct {
 	Config variablesHandler.DbConfig
 }
 
-func (p *PostgresWalletDBHandler) CreateWallet(wallet model.WalletDTO, tx *sql.Tx) (int64, error) {
+func (p *PostgresWalletDBHandler) CreateWallet(wallet dtos.WalletDTO, tx *sql.Tx) (int64, error) {
 	var rowsAffected int64
 	var err error
 	var response sql.Result
@@ -71,8 +72,14 @@ func (p *PostgresWalletDBHandler) GetWalletByNumber(walletNumber string) (*model
 	return &wallet, nil
 }
 
-func (p *PostgresWalletDBHandler) GetWalletStatusById(id int64) (string, error) {
-	row := p.Db.QueryRow(`SELECT wt.creation_status
+func (p *PostgresWalletDBHandler) GetWalletStatusById(id int64) (*dtos.WalletStatusDTO, error) {
+	row := p.Db.QueryRow(`SELECT 
+						w.id
+						, w.customer_id
+						, wallet_number
+						, creation_date
+						, balance
+						, wt.creation_status
 							FROM public.wallet w
 							INNER JOIN public.wallet_tracker wt
 							ON w.customer_id = wt.customer_id
@@ -80,19 +87,56 @@ func (p *PostgresWalletDBHandler) GetWalletStatusById(id int64) (string, error) 
 							ORDER BY wt.id DESC
 							LIMIT 1;`, id)
 
-	var walletStatus string
+	var walletStatus dtos.WalletStatusDTO
 
-	err := row.Scan(&walletStatus)
+	err := row.Scan(&walletStatus.Wallet.ID, &walletStatus.Wallet.CustomerId, &walletStatus.Wallet.WalletNumber, &walletStatus.Wallet.CreationDate, &walletStatus.Wallet.Balance, &walletStatus.Status)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", nil
+			return nil, nil
 		} else {
-			return "", err
+			return nil, err
 		}
 	}
 
-	return walletStatus, nil
+	return &walletStatus, nil
+}
+
+func (p *PostgresWalletDBHandler) GetFullWalletDataById(id int64) (*dtos.WalletDTO, error) {
+	var wallet dtos.WalletDTO
+	wallet.Movements = make([]dtos.WalletMovementDTO, 0)
+	rows, err := p.Db.Query(`SELECT 
+							 customer_id
+							, wallet_number
+							, creation_date
+							, balance
+							, sender_wallet_id
+							, receiver_wallet_id
+							, movement_date
+							, movement_type
+							, amount
+							FROM public.wallet w
+							INNER JOIN public.wallet_movement wm
+							ON wm.sender_wallet_id = w.id
+							WHERE w.id=$1;`, id)
+
+	if err != nil {
+		return &wallet, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var movement dtos.WalletMovementDTO
+
+		err = rows.Scan(&wallet.CustomerId, &wallet.WalletNumber, &wallet.CreationDate, &wallet.Balance, &movement.SenderWalletId, &movement.ReceiverWalletId, &movement.MovementDate, &movement.MovementType, &movement.Amount)
+		if err != nil {
+			return &wallet, err
+		}
+
+		wallet.Movements = append(wallet.Movements, movement)
+	}
+
+	return &wallet, nil
 }
 
 func (p *PostgresWalletDBHandler) DeleteWallet(id int64, tx *sql.Tx) (int64, error) {
@@ -123,7 +167,7 @@ func (p *PostgresWalletDBHandler) GetConfig() variablesHandler.DbConfig {
 	return p.Config
 }
 
-func createWalletQuery() string{
+func createWalletQuery() string {
 	return `INSERT INTO public.wallet(
 		customer_id, wallet_number, creation_date, balance)
 		VALUES ($1, $2, $3, $4);`

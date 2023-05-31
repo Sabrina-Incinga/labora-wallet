@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS public.wallet_tracker
     customer_id integer NOT NULL,
     record_date date NOT NULL,
     creation_status varchar(10) NOT NULL,
+    track_type varchar(50) NOT NULL,
+    request_status varchar(50) NOT NULL,
     CONSTRAINT customer_id FOREIGN KEY (customer_id)
         REFERENCES public.customer (id) MATCH SIMPLE
         ON UPDATE CASCADE
@@ -56,11 +58,6 @@ DROP CONSTRAINT IF EXISTS only_positive_balance_allowed;
 ALTER TABLE IF EXISTS public.wallet
 ADD CONSTRAINT only_positive_balance_allowed CHECK (balance >= 0);
 
-ALTER TABLE IF EXISTS public.wallet_tracker DROP COLUMN IF EXISTS track_type;
-
-ALTER TABLE IF EXISTS public.wallet_tracker
-ADD COLUMN track_type varchar(50) NOT NULL;
-
 ALTER TABLE IF EXISTS public.wallet
 ALTER COLUMN creation_date TYPE timestamp;
 
@@ -70,11 +67,12 @@ ALTER COLUMN record_date TYPE timestamp;
 CREATE TABLE IF NOT EXISTS public.wallet_movement
 (
     id SERIAL PRIMARY KEY,
-    wallet_id integer NOT NULL,
+    sender_wallet_id integer NOT NULL,
+    receiver_wallet_id integer,
     movement_date timestamp NOT NULL,
     movement_type varchar(10) NOT NULL,
     amount double precision NOT NULL,
-    CONSTRAINT wallet_id FOREIGN KEY (wallet_id)
+    CONSTRAINT sender_wallet_id FOREIGN KEY (sender_wallet_id)
         REFERENCES public.wallet (id) MATCH SIMPLE
         ON UPDATE CASCADE
         ON DELETE CASCADE

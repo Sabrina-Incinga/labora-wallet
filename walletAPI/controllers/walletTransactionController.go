@@ -3,8 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
-
-	"github.com/labora-wallet/walletAPI/model"
+	"github.com/labora-wallet/walletAPI/model/dtos"
 	"github.com/labora-wallet/walletAPI/services/interfaces"
 )
 
@@ -15,7 +14,7 @@ type WalletTransactionController struct {
 func (t WalletTransactionController) Transfer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var dto model.WalletTransactionDTO
+	var dto dtos.WalletTransactionDTO
 	err := json.NewDecoder(r.Body).Decode(&dto)
 
 	defer r.Body.Close()
@@ -38,7 +37,7 @@ func (t WalletTransactionController) Transfer(w http.ResponseWriter, r *http.Req
 func (t WalletTransactionController) Withdraw(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var dto model.WalletTransactionDTO
+	var dto dtos.WalletTransactionDTO
 	err := json.NewDecoder(r.Body).Decode(&dto)
 
 	defer r.Body.Close()
@@ -61,7 +60,7 @@ func (t WalletTransactionController) Withdraw(w http.ResponseWriter, r *http.Req
 func (t WalletTransactionController) AddToAccount(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var dto model.WalletTransactionDTO
+	var dto dtos.WalletTransactionDTO
 	err := json.NewDecoder(r.Body).Decode(&dto)
 
 	defer r.Body.Close()
