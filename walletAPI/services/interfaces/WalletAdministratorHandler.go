@@ -6,6 +6,6 @@ import (
 
 type WalletAdministratorHandler interface {
 	AttemptWalletCreation(wallet dtos.WalletDTO) (string, int64, error)
-	AttemptWalletRemoval(walletId int64) (int64, error)
+	AttemptWalletRemoval(walletId int64, customerId int64) (int64, error)
 	ValidateScore(nationalIdentityNumber, countryId string) string
 }

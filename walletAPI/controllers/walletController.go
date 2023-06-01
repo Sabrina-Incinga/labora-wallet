@@ -101,16 +101,16 @@ func (c *WalletController) GetWalletById(w http.ResponseWriter, r *http.Request)
 func (c *WalletController) DeleteWallet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	vars := mux.Vars(r)
-
-	id, err := strconv.Atoi(vars["id"])
+	variables := r.URL.Query()
+	walletId, err := strconv.Atoi(variables.Get("walletId"))
+	customerId, err := strconv.Atoi(variables.Get("customerId"))
 
 	if err != nil {
 		ThrowError(err, w, http.StatusBadRequest)
 		return
 	}
 
-	rowsAffected, err := c.WalletAdministratorServiceImpl.AttemptWalletRemoval(int64(id))
+	rowsAffected, err := c.WalletAdministratorServiceImpl.AttemptWalletRemoval(int64(walletId), int64(customerId))
 
 	if err != nil {
 		ThrowError(err, w, http.StatusBadRequest)

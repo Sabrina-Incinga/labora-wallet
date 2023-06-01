@@ -151,7 +151,7 @@ func StartServer() {
 	router.HandleFunc("/wallet", walletController.CreateWallet).Methods("POST")
 	router.HandleFunc("/wallet/{id}", walletController.GetWalletById).Methods("GET")
 	router.HandleFunc("/wallet/getStatusById/{id}", walletController.GetWalletStatus).Methods("GET")
-	router.HandleFunc("/wallet/delete/{id}", walletController.DeleteWallet).Methods("DELETE")
+	router.HandleFunc("/wallet/delete", walletController.DeleteWallet).Methods("DELETE")
 	router.HandleFunc("/wallet/transaction/withdraw", transactionController.Withdraw).Methods("POST")
 	router.HandleFunc("/wallet/transaction/add", transactionController.AddToAccount).Methods("POST")
 	router.HandleFunc("/wallet/transaction/transfer", transactionController.Transfer).Methods("POST")

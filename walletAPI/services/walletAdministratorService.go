@@ -55,10 +55,11 @@ func (p *PostgresWalletAdministrator) AttemptWalletCreation(wallet dtos.WalletDT
 		rowsAffected, err = p.WalletServiceImpl.CreateWallet(wallet, transaction)
 		
 		if err != nil {
-			trackerDto.RequestStatus = dtos.FAILEDREQUEST
 			return validationResult, rowsAffected, err
 		}
 		trackerDto.RequestStatus = dtos.SUCCESSFULREQUEST
+	}else{
+		trackerDto.RequestStatus = dtos.FAILEDREQUEST
 	}
 	_, err = p.WalletTrackerServiceImpl.CreateWalletTracker(trackerDto, transaction)
 
@@ -115,7 +116,7 @@ func (p *PostgresWalletAdministrator) ValidateScore(nationalIdentityNumber, coun
 
 }
 
-func (p *PostgresWalletAdministrator) AttemptWalletRemoval(walletId int64) (int64, error){
+func (p *PostgresWalletAdministrator) AttemptWalletRemoval(walletId int64, customerId int64) (int64, error){
 	var rowsAffected int64
 	transaction, err := p.Db.Begin()
 	if err != nil {
@@ -129,15 +130,9 @@ func (p *PostgresWalletAdministrator) AttemptWalletRemoval(walletId int64) (int6
 		}
 	}()
 
-	wallet, err := p.WalletServiceImpl.GetWalletStatusById(walletId)
-
-	if err != nil{
-		return rowsAffected, err
-	}
-
 	trackerDto := dtos.InitializeWalletTracker()
 	trackerDto.CreationStatus = "NA"
-	trackerDto.CustomerId = wallet.Wallet.CustomerId
+	trackerDto.CustomerId = customerId
 	trackerDto.TrackType = dtos.WALLETREMOVAL
 	
 	
@@ -145,9 +140,14 @@ func (p *PostgresWalletAdministrator) AttemptWalletRemoval(walletId int64) (int6
 	
 	if err != nil{
 		trackerDto.RequestStatus = dtos.FAILEDREQUEST
+		_, err = p.WalletTrackerServiceImpl.CreateWalletTracker(trackerDto, nil)
 		return rowsAffected, err
 	}
+
 	trackerDto.RequestStatus = dtos.SUCCESSFULREQUEST
+	if rowsAffected == 0 {
+		trackerDto.RequestStatus = dtos.FAILEDREQUEST
+	}
 
 	_, err = p.WalletTrackerServiceImpl.CreateWalletTracker(trackerDto, nil)
 	if err != nil{
