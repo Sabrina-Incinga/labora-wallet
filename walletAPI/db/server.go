@@ -6,16 +6,16 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"sync"
 	"time"
-
 	"github.com/gorilla/mux"
-	"github.com/labora-wallet/walletAPI/controllers"
 	"github.com/labora-wallet/walletAPI/db/variablesHandler"
-	"github.com/labora-wallet/walletAPI/services"
 	_ "github.com/lib/pq"
 	"github.com/rs/cors"
+	embed "embed"
 )
+
+//go:embed sql/*
+var sqlScripts embed.FS
 
 func validateDatabaseExistenceOrCreate(dbConfig variablesHandler.DbConfig, connection *sql.DB, err error) (bool, error) {
 	var rowsAffected int64
@@ -56,7 +56,13 @@ func checkDatabaseExists(db *sql.DB, dbname string) (bool, error) {
 }
 
 func createDatabase(response *bool, connection *sql.DB, rowsAffected *int64) error {
-	scriptContent, err := ioutil.ReadFile("sql\\wallet_script_database.sql")
+	file, err := sqlScripts.Open("sql/wallet_script_database.sql")
+	if err != nil {
+		*response = false
+		return err
+	}
+
+	scriptContent, err := ioutil.ReadAll(file)
 	if err != nil {
 		*response = false
 		return err
@@ -103,7 +109,12 @@ func getConnection() (*sql.DB, *variablesHandler.DbConfig, error) {
 }
 
 func createTables(connection *sql.DB) error {
-	scriptContent, err := ioutil.ReadFile("sql\\wallet_script_tables.sql")
+	file, err := sqlScripts.Open("sql/wallet_script_tables.sql")
+	if err != nil {
+		return err
+	}
+
+	scriptContent, err := ioutil.ReadAll(file)
 	if err != nil {
 		return err
 	}
@@ -114,21 +125,6 @@ func createTables(connection *sql.DB) error {
 	}
 
 	return nil
-}
-
-func startup(connection *sql.DB, dbConfig *variablesHandler.DbConfig) (*controllers.WalletController, *controllers.WalletTransactionController) {
-	var mutex sync.Mutex
-	customerService := &services.PostgresCustomerDBHandler{Db: connection}
-	walletService := &services.PostgresWalletDBHandler{Db: connection, Config: *dbConfig}
-	walletTrackerService := &services.PostgresWalletTrackerDBHandler{Db: connection}
-	walletAdministratorService := &services.PostgresWalletAdministrator{Db: connection, CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService}
-	walletController := &controllers.WalletController{CustomerServiceImpl: customerService, WalletServiceImpl: walletService, WalletTrackerServiceImpl: walletTrackerService, WalletAdministratorServiceImpl: walletAdministratorService}
-
-	walletMovementService := &services.PostgresWalletMovementDBHandler{Db: connection}
-	transactionService := &services.PostgresWalletTransactionDBHandler{Db: connection, WalletServiceImpl: walletService, WalletMovementServiceImpl: walletMovementService, WalletTrackerServiceImpl: walletTrackerService, Mutex: &mutex}
-	transactionController := &controllers.WalletTransactionController{WalletTransactionServiceImpl: transactionService}
-
-	return walletController, transactionController
 }
 
 func StartServer() {

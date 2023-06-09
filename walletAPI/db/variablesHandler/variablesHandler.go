@@ -26,7 +26,7 @@ func LoadEnvVariables() (DbConfig, error) {
 		Port:     os.Getenv("port"),
 		User:     os.Getenv("user"),
 		Password: os.Getenv("password"),
-		DbName:   os.Getenv("dbname"),
+		DbName:   os.Getenv("dbName"),
 		ApiKey:   os.Getenv("apiKey"),
 		BackgroundChecksUrl: os.Getenv("backgroundChecksUrl"),
 	}, nil
